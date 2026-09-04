@@ -49,7 +49,7 @@ The core/content libraries build without SDL. Only the executable target links p
 - `opennfh::build::name()` returns `"OpenNFH"`.
 - `opennfh --help` lists `--data-root`, `--inspect`, and `--replay`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```cpp
 #include <cassert>
@@ -57,24 +57,24 @@ The core/content libraries build without SDL. Only the executable target links p
 int main() { assert(opennfh::build::name() == "OpenNFH"); }
 ```
 
-- [ ] **Step 2: Run it to verify failure**
+- [x] **Step 2: Run it to verify failure**
 
 Run: `cmake -S . -B build && cmake --build build && ctest --test-dir build --output-on-failure`
 
 Expected: configuration or compilation fails because the project and symbol do not exist.
 
-- [ ] **Step 3: Implement the minimum build**
+- [x] **Step 3: Implement the minimum build**
 
 Set C++20, create core/library/executable/test targets, and make `main.cpp` print the three option names. Return code 2 for an unknown option.
 `vcpkg.json` lists only `sdl3`, `libzip`, and `pugixml`; stb_image and miniaudio are isolated behind project adapters and are added with their upstream license text when the corresponding task starts.
 
-- [ ] **Step 4: Verify the source-only guard**
+- [x] **Step 4: Verify the source-only guard**
 
 Run: `python tools/check_source_only.py .`
 
 Expected: exit 0 for the repository and nonzero for a temporary staging file `data-local/probe.bnd`, including its path in the diagnostic.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add CMakeLists.txt CMakePresets.json vcpkg.json include src tests tools/check_source_only.py
