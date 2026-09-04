@@ -37,27 +37,27 @@
 - Add `WorldState make_world(content::LevelDefinition level)`.
 - `make_world` moves the level into the world and emits entities in deterministic source scope order: root objects, then each room's actors, objects, and doors. It assigns IDs from 1, preserves room/position/layer/visibility, and uses the logical content name as `EntityState.kind`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Build a synthetic level with one room, one `woody` actor at `10/20`, one visible object at `30/40`, and one invisible door. Assert that `make_world` preserves three entities, source order, positions, layers, rooms, and active visibility.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run: `cmake --build build/ninja --target scene_test`
 
 Expected: configuration or compilation fails because `make_world` and placed-object geometry are not implemented.
 
-- [ ] **Step 3: Implement the minimum scene builder**
+- [x] **Step 3: Implement the minimum scene builder**
 
 Parse `position` and `visible` from every level `<object>` while retaining the old defaults for missing attributes. Implement `make_world` with one pass over the canonical level model and no SDL dependency.
 
-- [ ] **Step 4: Run the focused test and the existing simulation tests**
+- [x] **Step 4: Run the focused test and the existing simulation tests**
 
 Run: `cmake --build build/ninja --target scene_test && ctest --test-dir build/ninja -R "(scene|navigation|actions|combinations)_test" --output-on-failure`
 
 Expected: all selected tests pass and existing aggregate initializers remain source-compatible.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/content/model.hpp src/content/loader.cpp include/opennfh/simulation/scene.hpp src/simulation/scene.cpp tests/simulation/scene_test.cpp CMakeLists.txt

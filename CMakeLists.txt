@@ -144,8 +144,15 @@ endif()
 add_library(opennfh_simulation STATIC
     src/simulation/world.cpp
     src/simulation/navigation.cpp
+    src/simulation/scene.cpp
 )
 target_link_libraries(opennfh_simulation PUBLIC opennfh_content)
+
+add_executable(scene_test
+    tests/simulation/scene_test.cpp
+)
+target_link_libraries(scene_test PRIVATE opennfh_simulation)
+add_test(NAME scene_test COMMAND scene_test)
 
 add_executable(navigation_test
     tests/simulation/navigation_test.cpp

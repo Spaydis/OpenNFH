@@ -59,6 +59,8 @@ struct ActorSpawn {
 struct PlacedObject {
     std::string name;
     int layer{0};
+    Vec2i position;
+    bool visible{true};
 };
 
 struct Room {
