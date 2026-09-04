@@ -352,25 +352,25 @@ git commit -m "simulation: add data-driven actions and combinations"
 - `SimulationSnapshot { Tick tick; vector<EntityState> entities; map<string, int> quotas; }` is the asset-free replay state.
 - `hash_snapshot(const SimulationSnapshot&)` hashes only the asset-free simulation state; decoded pixels and audio are excluded.
 - `InputEvent { Tick tick; InputAction action; Vec2i cursor; string target; }`, `Replay { uint32_t version; vector<InputEvent> events; }`, `read_replay(istream&)`, and `write_replay(ostream&)`.
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Assert `once` fires once, `always` can repeat, `nearobj/room/house` filter correctly, noise 0 is silent, quotas update before evaluation, and replay round-trips with equal snapshot hashes.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run: `cmake --build build --target neighbor_ai_test progression_test replay_test && ctest --test-dir build -R "(neighbor_ai|progression|replay)_test" --output-on-failure`.
 
 Expected: FAIL because scheduler, progression, and replay are absent.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Consume action/noise/object/room events, maintain per-trigger once state, schedule neighbor actions through the same transaction system, keep source order as a tie-breaker, and parse a UTF-8 line format `version 1` plus `tick action x y target` using `std::from_chars`.
 
-- [ ] **Step 4: Verify campaign and reference traces**
+- [x] **Step 4: Verify campaign and reference traces**
 
 Load `leveldata.xml` and assert tutorial/set01 are playable, set02/set03 locked, and all 17 resource IDs exist. Compare a private manually observed replay by IDs, ticks, events, and counters only.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/simulation src/simulation tests/simulation docs/replay-format.md src/app/main.cpp CMakeLists.txt

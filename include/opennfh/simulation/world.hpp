@@ -38,6 +38,15 @@ struct NoiseEvent {
     Tick tick{0};
 };
 
+struct TriggerEvent {
+    std::string actor;
+    std::string behavior;
+    std::string type;
+    std::string position;
+    std::string object;
+    Tick tick{0};
+};
+
 struct WorldState {
     content::LevelDefinition level;
     std::vector<EntityState> entities;
@@ -50,6 +59,8 @@ struct WorldState {
     std::map<std::string, int> quotas;
     std::set<EntityId> busy_entities;
     std::vector<NoiseEvent> emitted_noise;
+    std::set<std::string> fired_triggers;
+    std::vector<TriggerEvent> emitted_triggers;
 
     [[nodiscard]] RoomId current_room(EntityId entity) const;
 };

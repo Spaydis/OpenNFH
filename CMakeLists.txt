@@ -170,3 +170,34 @@ if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/deb
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()
+
+add_library(opennfh_runtime STATIC
+    src/simulation/neighbor_ai.cpp
+    src/simulation/progression.cpp
+    src/simulation/replay.cpp
+)
+target_link_libraries(opennfh_runtime PUBLIC opennfh_gameplay)
+
+add_executable(neighbor_ai_test
+    tests/simulation/neighbor_ai_test.cpp
+)
+target_link_libraries(neighbor_ai_test PRIVATE opennfh_runtime)
+add_test(NAME neighbor_ai_test COMMAND neighbor_ai_test)
+
+add_executable(progression_test
+    tests/simulation/progression_test.cpp
+)
+target_link_libraries(progression_test PRIVATE opennfh_runtime)
+add_test(NAME progression_test COMMAND progression_test)
+
+add_executable(replay_test
+    tests/simulation/replay_test.cpp
+)
+target_link_libraries(replay_test PRIVATE opennfh_runtime)
+add_test(NAME replay_test COMMAND replay_test)
+
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
+    set_tests_properties(neighbor_ai_test progression_test replay_test PROPERTIES
+        ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
+    )
+endif()
