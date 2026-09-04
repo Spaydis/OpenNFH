@@ -224,25 +224,25 @@ git commit -m "io: decode local images and inspect audio formats"
 - `ContentCatalog` owns `CampaignCatalog`, generic definitions, dialog/font/shortcut definitions, and pack references.
 - `LevelDefinition` is the object returned by `load_level`; it is complete after generic/level overlay and contains no decoded media.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Use synthetic fragments to assert four level sets, folder-based identity for `level_mail` versus repeated `<level name>`, and a generic animation merged into a level object definition.
 
-- [ ] **Step 2: Run the focused test**
+- [x] **Step 2: Run the focused test**
 
 Run: `cmake --build build --target content_loader_test && ctest --test-dir build -R content_loader_test --output-on-failure`.
 
 Expected: FAIL because the model and loader are absent.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Load `leveldata.xml`, generic roles, and the nine per-level roles. Preserve source order, logical IDs, source scope, integer coordinates/timing, and unresolved media references. Merge generic records before level records by ID; use strict XML by default and expose compatibility duplicate handling.
 
-- [ ] **Step 4: Verify the local catalog**
+- [x] **Step 4: Verify the local catalog**
 
 Run `opennfh --inspect --data-root "C:\Program Files (x86)\StopWoody\data"`. Expected: 17 level folders, 207 XML entries, 4,980 graphics entries, 291 audio entries, and one strict diagnostic for `level_mail/objects.xml`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/content src/content tests/content CMakeLists.txt

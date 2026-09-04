@@ -109,3 +109,21 @@ add_executable(audio_catalog_test
 )
 target_link_libraries(audio_catalog_test PRIVATE opennfh_media)
 add_test(NAME audio_catalog_test COMMAND audio_catalog_test)
+
+add_library(opennfh_content STATIC
+    src/content/loader.cpp
+)
+target_link_libraries(opennfh_content PUBLIC opennfh_io)
+
+add_executable(content_loader_test
+    tests/content/content_loader_test.cpp
+)
+target_include_directories(content_loader_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+target_link_libraries(content_loader_test PRIVATE opennfh_content)
+add_test(NAME content_loader_test COMMAND content_loader_test)
+
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
+    set_tests_properties(content_loader_test PROPERTIES
+        ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
+    )
+endif()
