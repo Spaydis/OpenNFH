@@ -263,28 +263,28 @@ git commit -m "content: load campaign model with generic overlays"
 - `EntityState { EntityId id; std::string kind; RoomId room; Vec2i position; int layer; bool active; }`.
 - `WorldState` owns mutable flags, inventory, active action, once-trigger keys, and quota counters in addition to entities.
 - `NavStep { RoomId room; DoorId door; Vec2i destination; int cost; }`.
-- `find_path(const WorldState&, EntityId, Vec2i) -> Result<vector<NavStep>>`.
+- `find_path(const WorldState&, EntityId, string_view target_room, Vec2i target) -> Result<vector<NavStep>>` and the same-room overload `find_path(const WorldState&, EntityId, Vec2i target)`.
 - `advance_navigation(WorldState&, EntityId, Tick)`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Construct three rooms with two routes and a blocked door. Assert lowest cost, deterministic tie-breaking by source order, and a missing-route error.
 
-- [ ] **Step 2: Run the focused test**
+- [x] **Step 2: Run the focused test**
 
 Run: `cmake --build build --target navigation_test && ctest --test-dir build -R navigation_test --output-on-failure`.
 
 Expected: FAIL because the navigation graph is absent.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Build room/door adjacency from `level.xml`, use integer positions/costs, preserve room order for ties, and consume movement in deterministic tick budgets. Do not add continuous physics.
 
-- [ ] **Step 4: Verify local geometry**
+- [x] **Step 4: Verify local geometry**
 
 Load `tutorial_1` and one main level from the user data root; assert all `doorin`/`doorout` IDs resolve after overlay and report only counts/IDs.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/simulation/world.hpp include/opennfh/simulation/navigation.hpp src/simulation tests/simulation/navigation_test.cpp CMakeLists.txt
