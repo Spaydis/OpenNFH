@@ -17,6 +17,7 @@ target_include_directories(opennfh_core INTERFACE
 
 find_package(libzip CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
+find_path(STB_IMAGE_INCLUDE_DIR NAMES stb_image.h PATHS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/include" REQUIRED)
 add_library(opennfh_io STATIC
     src/io/zip_vfs.cpp
     src/io/data_root.cpp
@@ -82,3 +83,29 @@ if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/deb
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()
+
+add_library(opennfh_media STATIC
+    src/io/tga_decoder.cpp
+    src/io/png_decoder.cpp
+    src/io/audio_catalog.cpp
+)
+target_link_libraries(opennfh_media PUBLIC opennfh_core)
+target_include_directories(opennfh_media PRIVATE "${STB_IMAGE_INCLUDE_DIR}")
+
+add_executable(tga_decoder_test
+    tests/io/tga_decoder_test.cpp
+)
+target_link_libraries(tga_decoder_test PRIVATE opennfh_media)
+add_test(NAME tga_decoder_test COMMAND tga_decoder_test)
+
+add_executable(png_decoder_test
+    tests/io/png_decoder_test.cpp
+)
+target_link_libraries(png_decoder_test PRIVATE opennfh_media)
+add_test(NAME png_decoder_test COMMAND png_decoder_test)
+
+add_executable(audio_catalog_test
+    tests/io/audio_catalog_test.cpp
+)
+target_link_libraries(audio_catalog_test PRIVATE opennfh_media)
+add_test(NAME audio_catalog_test COMMAND audio_catalog_test)

@@ -181,25 +181,25 @@ git commit -m "io: parse ordered XML fragments with diagnostics"
 - `decode_tga(span<const byte>)` and `decode_png(span<const byte>)` return `Result<ImageRgba8>`.
 - `AudioSpec { uint16_t format,channels,bits; uint32_t sample_rate; }` and `inspect_audio(span<const byte>)`.
 
-- [ ] **Step 1: Write failing codec tests**
+- [x] **Step 1: Write failing codec tests**
 
 Create in-memory TGA type 2 16/32-bit fixtures, one type 10 RLE fixture, and a one-pixel RGBA PNG. Assert dimensions, origin, alpha, pixel order, and PCM WAV header fields; include MP3 ID3 and raw-frame header cases.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
 Run: `cmake --build build --target tga_decoder_test png_decoder_test audio_catalog_test && ctest --test-dir build -R "(tga|png|audio_catalog)_test" --output-on-failure`.
 
 Expected: FAIL because decoders/catalog are absent.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Support TGA type 2/type 10, no color map, 16/24/32-bit pixels, descriptor-origin bits, standard 5-5-5-1 expansion, and RGBA8 output. Use stb_image for PNG and parse WAV/MP3 headers without Miles.
 
-- [ ] **Step 4: Verify local metadata only**
+- [x] **Step 4: Verify local metadata only**
 
 Inspect `gfxdata.bnd` and `sfxdata.bnd` without writing decoded media. Expected: 4,980 TGA entries; 278 WAV and 13 MP3 entries; WAV variants include 44.1 kHz/16-bit mono.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/io src/io tests/io CMakeLists.txt
