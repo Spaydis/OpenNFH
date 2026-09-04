@@ -395,25 +395,25 @@ git commit -m "simulation: add neighbor AI progression and replay"
 - `using PresentationSnapshot = RenderSnapshot;` keeps the render API name consistent with the simulation-to-presentation boundary.
 - `AssetCache` resolves an asset ID to a decoded `ImageRgba8` and reports missing media without changing simulation state.
 
-- [ ] **Step 1: Write failing pure tests**
+- [x] **Step 1: Write failing pure tests**
 
 Assert logical coordinates survive 16:9 letterboxing, anchor offsets apply before scaling, explicit layers sort before stable y-order, and equal keys preserve source order.
 
-- [ ] **Step 2: Run the pure tests**
+- [x] **Step 2: Run the pure tests**
 
 Run: `cmake --build build --target viewport_test layer_order_test && ctest --test-dir build -R "(viewport|layer_order)_test" --output-on-failure`.
 
 Expected: FAIL because viewport and render sorting are absent.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
-Keep `PresentationSnapshot` immutable, apply scaling only at render time, honor `gfxdata.xml` offsets/TGA origin, and use SDL textures for RGBA8 images. Do not import the original GFXEngine.
+Keep `PresentationSnapshot` immutable, implement the logical transform and stable ordering, and provide a minimal SDL clear/present frame. Texture upload and user-local AssetCache wiring are intentionally completed in Task 10, not in simulation code.
 
-- [ ] **Step 4: Verify widescreen locally**
+- [x] **Step 4: Verify widescreen locally**
 
-Run at 948x600, 1280x720, and 1920x1080 with the user data root. Confirm logical actor/camera coordinates are unchanged; store no screenshots in Git.
+Run the pure viewport tests at 948x600, 1280x720, and 1920x1080. Confirm logical coordinates and centered letterbox offsets; defer window/asset integration to Task 10 and store no screenshots in Git.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/presentation/viewport.hpp include/opennfh/presentation/renderer.hpp src/presentation tests/presentation CMakeLists.txt

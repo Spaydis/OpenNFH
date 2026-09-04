@@ -17,6 +17,7 @@ target_include_directories(opennfh_core INTERFACE
 
 find_package(libzip CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
+find_package(SDL3 CONFIG REQUIRED)
 find_path(STB_IMAGE_INCLUDE_DIR NAMES stb_image.h PATHS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/include" REQUIRED)
 add_library(opennfh_io STATIC
     src/io/zip_vfs.cpp
@@ -198,6 +199,30 @@ add_test(NAME replay_test COMMAND replay_test)
 
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
     set_tests_properties(neighbor_ai_test progression_test replay_test PROPERTIES
+        ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
+    )
+endif()
+
+add_library(opennfh_presentation STATIC
+    src/presentation/viewport.cpp
+    src/presentation/renderer.cpp
+)
+target_link_libraries(opennfh_presentation PUBLIC opennfh_runtime SDL3::SDL3)
+
+add_executable(viewport_test
+    tests/presentation/viewport_test.cpp
+)
+target_link_libraries(viewport_test PRIVATE opennfh_presentation)
+add_test(NAME viewport_test COMMAND viewport_test)
+
+add_executable(layer_order_test
+    tests/presentation/layer_order_test.cpp
+)
+target_link_libraries(layer_order_test PRIVATE opennfh_presentation)
+add_test(NAME layer_order_test COMMAND layer_order_test)
+
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
+    set_tests_properties(viewport_test layer_order_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()
