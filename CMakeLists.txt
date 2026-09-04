@@ -16,11 +16,13 @@ target_include_directories(opennfh_core INTERFACE
 )
 
 find_package(libzip CONFIG REQUIRED)
+find_package(pugixml CONFIG REQUIRED)
 add_library(opennfh_io STATIC
     src/io/zip_vfs.cpp
     src/io/data_root.cpp
+    src/io/xml_fragments.cpp
 )
-target_link_libraries(opennfh_io PUBLIC opennfh_core libzip::zip)
+target_link_libraries(opennfh_io PUBLIC opennfh_core libzip::zip pugixml::pugixml)
 
 if(MSVC)
     target_compile_options(opennfh_core INTERFACE /W4 /permissive-)
@@ -64,6 +66,19 @@ add_test(NAME data_root_test COMMAND data_root_test)
 
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
     set_tests_properties(data_root_test PROPERTIES
+        ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
+    )
+endif()
+
+add_executable(xml_fragments_test
+    tests/io/xml_fragments_test.cpp
+)
+target_include_directories(xml_fragments_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+target_link_libraries(xml_fragments_test PRIVATE opennfh_io)
+add_test(NAME xml_fragments_test COMMAND xml_fragments_test)
+
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
+    set_tests_properties(xml_fragments_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()

@@ -142,25 +142,25 @@ git commit -m "io: audit identifiers and add read-only ZIP VFS"
 - `XmlFragmentDocument { vector<XmlNode> roots; vector<Diagnostic> diagnostics; }`.
 - `parse_xml_fragments(source, utf8, XmlParseOptions) -> Result<XmlFragmentDocument>`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Use `<object name="a"/><object name="b"/>` to assert root order; use `<object name="a" actor="woody" actor="woody"/>` to assert strict duplicate diagnostics with line/column; test both deterministic keep policies and an empty declaration-only stream.
 
-- [ ] **Step 2: Run the focused test**
+- [x] **Step 2: Run the focused test**
 
 Run: `cmake --build build --target xml_fragments_test && ctest --test-dir build -R xml_fragments_test --output-on-failure`.
 
 Expected: FAIL because the parser is absent.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Remove only the XML declaration, lex attributes for duplicate names and source positions, wrap the remaining stream in a synthetic root for pugixml, and convert to project-owned nodes. Strict mode rejects malformed markup; compatibility mode applies the selected policy and records a warning.
 
-- [ ] **Step 4: Verify known data issues**
+- [x] **Step 4: Verify known data issues**
 
 Run strict validation on `gamedata.bnd`. Expected: `level_mail/objects.xml` reports duplicate `actor` at line 274 and `tutorial_1/combine.xml` returns zero roots without changing either entry.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/io/xml_fragments.hpp src/io/xml_fragments.cpp tests/io/xml_fragments_test.cpp CMakeLists.txt
