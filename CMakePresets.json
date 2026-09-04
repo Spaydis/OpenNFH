@@ -1,0 +1,35 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "ninja",
+      "displayName": "Ninja",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ninja",
+      "cacheVariables": {
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "ninja",
+      "configurePreset": "ninja"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "ninja",
+      "configurePreset": "ninja",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
