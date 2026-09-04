@@ -49,6 +49,7 @@ public:
     void release_renderer(SDL_Renderer* renderer) noexcept;
 
     friend void render_frame(SDL_Renderer*, const RenderSnapshot&, const AssetCache&, const ViewportTransform&);
+    friend void render_scene(SDL_Renderer*, const RenderSnapshot&, const AssetCache&, const ViewportTransform&);
 
 private:
     struct TextureEntry {
@@ -67,6 +68,8 @@ private:
 };
 
 [[nodiscard]] std::vector<RenderItem> sort_render_items(std::span<const RenderItem> items);
+void render_scene(SDL_Renderer* renderer, const RenderSnapshot& snapshot,
+                  const AssetCache& assets, const ViewportTransform& transform);
 void render_frame(SDL_Renderer* renderer, const RenderSnapshot& snapshot,
                   const AssetCache& assets, const ViewportTransform& transform);
 

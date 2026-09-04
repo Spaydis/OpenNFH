@@ -10,7 +10,9 @@
 #include "opennfh/content/loader.hpp"
 #include "opennfh/io/data_root.hpp"
 #include "opennfh/presentation/audio.hpp"
+#include "opennfh/presentation/live.hpp"
 #include "opennfh/simulation/replay.hpp"
+#include "opennfh/simulation/scene.hpp"
 
 namespace {
 
@@ -47,6 +49,7 @@ struct Options {
     std::string replay;
     bool inspect{false};
     bool headless{false};
+    bool play{false};
     bool show_help{false};
 };
 
@@ -55,6 +58,7 @@ void print_help() {
               << "  --data-root <path>  use a user-owned data directory\n"
               << "  --inspect           inspect local pack metadata\n"
               << "  --level <id>        load one level by resource id\n"
+              << "  --play              open an SDL live session\n"
               << "  --headless          do not create a presentation window\n"
               << "  --replay <path>     validate a deterministic replay\n"
               << "  --help              show this help\n";
@@ -102,6 +106,10 @@ bool parse_options(int argc, char** argv, Options& options) {
         }
         if (argument == "--headless") {
             options.headless = true;
+            continue;
+        }
+        if (argument == "--play") {
+            options.play = true;
             continue;
         }
         std::cerr << "unknown option: " << argument << '\n';
@@ -191,51 +199,91 @@ int read_replay(const Options& options) {
         return 1;
     }
 
-    opennfh::simulation::WorldState world;
-    if (!options.level.empty()) {
-        const auto root_result = open_data_root(options);
-        if (!root_result.has_value()) {
-            std::cerr << "cannot open data root: " << root_result.error().message << '\n';
-            return root_result.error().code == opennfh::ErrorCode::InvalidArgument ? 2 : 1;
+    if (options.level.empty()) {
+        opennfh::simulation::SimulationSnapshot snapshot{0, {}, {}};
+        opennfh::simulation::Tick previous_tick = 0;
+        for (const auto& event : replay.value().events) {
+            if (event.tick < previous_tick) {
+                std::cerr << "replay events are not ordered by tick\n";
+                return 1;
+            }
+            previous_tick = event.tick;
+            snapshot.tick = event.tick;
         }
-        opennfh::content::LoadOptions load_options;
-        load_options.xml.duplicate_attributes = opennfh::io::DuplicateAttributePolicy::KeepLast;
-        const auto level = opennfh::content::load_level(
-            root_result.value(), options.level, load_options);
-        if (!level.has_value()) {
-            std::cerr << "cannot load level: " << level.error().message << '\n';
-            return 1;
+        std::cout << "replay_events=" << replay.value().events.size() << '\n'
+                  << "mode=" << (options.headless ? "headless" : "asset-free") << '\n'
+                  << "final_snapshot_hash=" << opennfh::simulation::hash_snapshot(snapshot) << '\n';
+        return 0;
+    }
+
+    const auto root_result = open_data_root(options);
+    if (!root_result.has_value()) {
+        std::cerr << "cannot open data root: " << root_result.error().message << '\n';
+        return root_result.error().code == opennfh::ErrorCode::InvalidArgument ? 2 : 1;
+    }
+    opennfh::content::LoadOptions load_options;
+    load_options.xml.duplicate_attributes = opennfh::io::DuplicateAttributePolicy::KeepLast;
+    const auto level = opennfh::content::load_level(
+        root_result.value(), options.level, load_options);
+    if (!level.has_value()) {
+        std::cerr << "cannot load level: " << level.error().message << '\n';
+        return 1;
+    }
+    auto world = opennfh::simulation::make_world(level.value());
+    opennfh::simulation::EntityId controlled_actor = 0;
+    for (const auto& entity : world.entities) {
+        if (entity.active && entity.kind == "woody") {
+            controlled_actor = entity.id;
+            break;
         }
-        world.level = level.value();
-        opennfh::simulation::EntityId next_id = 1;
-        for (const auto& room : world.level.rooms) {
-            for (const auto& actor : room.actors) {
-                world.entities.push_back(opennfh::simulation::EntityState{
-                    next_id++, actor.name, room.id, actor.position, actor.layer, true});
+    }
+    if (controlled_actor == 0) {
+        for (const auto& entity : world.entities) {
+            if (entity.active) {
+                controlled_actor = entity.id;
+                break;
             }
         }
     }
-
-    opennfh::simulation::SimulationSnapshot snapshot{
-        0, world.entities, world.quotas};
-    std::uint64_t final_hash = opennfh::simulation::hash_snapshot(snapshot);
-    opennfh::simulation::Tick previous_tick = 0;
-    bool has_previous_tick = false;
-    for (const auto& event : replay.value().events) {
-        if (has_previous_tick && event.tick < previous_tick) {
-            std::cerr << "replay events are not ordered by tick\n";
-            return 1;
-        }
-        previous_tick = event.tick;
-        has_previous_tick = true;
-        snapshot.tick = event.tick;
-        final_hash = opennfh::simulation::hash_snapshot(snapshot);
+    const auto result = opennfh::simulation::run_replay(
+        world, replay.value(), {controlled_actor, 0, false});
+    if (!result.has_value()) {
+        std::cerr << "cannot execute replay: " << result.error().message << '\n';
+        return 1;
     }
-
-    std::cout << "replay_events=" << replay.value().events.size() << '\n'
+    std::cout << "replay_events=" << result.value().processed_events << '\n'
               << "mode=" << (options.headless ? "headless" : "asset-free") << '\n'
-              << "final_snapshot_hash=" << final_hash << '\n';
+              << "final_snapshot_hash=" << result.value().snapshot_hash << '\n';
     return 0;
+}
+
+int play_level(const Options& options) {
+    const auto request = opennfh::presentation::validate_play_request(
+        options.headless, options.data_root, options.level);
+    if (!request.has_value()) {
+        std::cerr << request.error().message << '\n';
+        return 2;
+    }
+    const auto root_result = open_data_root(options);
+    if (!root_result.has_value()) {
+        std::cerr << "cannot open data root: " << root_result.error().message << '\n';
+        return root_result.error().code == opennfh::ErrorCode::InvalidArgument ? 2 : 1;
+    }
+    opennfh::content::LoadOptions load_options;
+    load_options.xml.duplicate_attributes = opennfh::io::DuplicateAttributePolicy::KeepLast;
+    const auto level = opennfh::content::load_level(
+        root_result.value(), options.level, load_options);
+    if (!level.has_value()) {
+        std::cerr << "cannot load level: " << level.error().message << '\n';
+        return 1;
+    }
+    const auto result = opennfh::presentation::run_level(
+        root_result.value(), level.value(), {});
+    if (!result.has_value()) {
+        std::cerr << "live session failed: " << result.error().message << '\n';
+        return 1;
+    }
+    return result.value();
 }
 
 }  // namespace
@@ -251,6 +299,13 @@ int main(int argc, char** argv) {
     }
     if (options.inspect) {
         return inspect(options);
+    }
+    if (options.play && !options.replay.empty()) {
+        std::cerr << "--play cannot be combined with --replay\n";
+        return 2;
+    }
+    if (options.play) {
+        return play_level(options);
     }
     if (!options.replay.empty()) {
         return read_replay(options);

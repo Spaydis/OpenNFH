@@ -210,27 +210,27 @@ git commit -m "presentation: build snapshots and load local TGA assets"
 
 The live loop converts `SDL_EVENT_MOUSE_BUTTON_DOWN` through `ViewportTransform::to_logical`, builds hit regions from the current render snapshot and cached image dimensions, records `entity:<id>` targets, maps arrow/pause/escape keys to `InputAction`, advances simulation in fixed tick steps, draws snapshots/UI, and calls `AssetCache::release_renderer` before destroying the SDL renderer. It does not use a real-time delta as simulation state.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Test option validation without opening SDL: missing data root, missing level, default window dimensions, and `--headless` rejection of `--play`. Keep live runtime invocation out of CTest.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run: `cmake --build build/ninja --target live_options_test`
 
 Expected: compilation fails because live options and explicit play dispatch are absent.
 
-- [ ] **Step 3: Implement the minimal live session**
+- [x] **Step 3: Implement the minimal live session**
 
 Keep all SDL calls in `live.cpp`, initialize the user-local level through `make_world`, lazily load referenced TGA images, construct `UiSnapshot` from `dialogs/menu.xml`, and stop cleanly on quit or window close.
 
-- [ ] **Step 4: Run headless and presentation tests**
+- [x] **Step 4: Run headless and presentation tests**
 
 Run: `cmake --build build/ninja --target opennfh live_options_test && ctest --test-dir build/ninja -R "(live_options|assets|viewport|layer_order|ui|replay_runner)_test" --output-on-failure`
 
 Expected: all selected tests pass; no test creates a window.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/presentation/live.hpp src/presentation/live.cpp tests/presentation/live_options_test.cpp src/app/main.cpp README.md CMakeLists.txt
