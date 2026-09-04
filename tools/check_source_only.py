@@ -9,19 +9,19 @@ import sys
 
 
 PROHIBITED_SUFFIXES = {
-    ".asi", ".bnd", ".dll", ".exe", ".fot", ".mp3", ".mov",
-    ".pdn", ".png", ".psd", ".tga", ".ttf", ".wav",
+    ".7z", ".asi", ".bnd", ".dll", ".exe", ".fot", ".mp3", ".mov",
+    ".pdn", ".png", ".psd", ".rar", ".tga", ".ttf", ".wav", ".zip",
 }
 SKIP_DIRECTORY_NAMES = {".git", "build", "out", "vcpkg_installed"}
 
 
 def iter_files(root: Path):
     for path in root.rglob("*"):
-        if not path.is_file():
+        relative = path.relative_to(root)
+        if relative.parts and relative.parts[0].casefold() in SKIP_DIRECTORY_NAMES:
             continue
-        if any(part in SKIP_DIRECTORY_NAMES for part in path.relative_to(root).parts):
-            continue
-        yield path
+        if path.is_file():
+            yield path
 
 
 def main() -> int:
@@ -31,7 +31,7 @@ def main() -> int:
 
     violations = [
         path for path in iter_files(args.root)
-        if path.suffix.lower() in PROHIBITED_SUFFIXES
+        if path.suffix.casefold() in PROHIBITED_SUFFIXES
     ]
     for path in sorted(violations):
         print(f"prohibited source/release file: {path}", file=sys.stderr)

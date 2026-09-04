@@ -22,6 +22,7 @@ Error error(std::string message, std::size_t line = 0) {
 
 std::string_view action_token(InputAction action) {
     switch (action) {
+    case InputAction::Unknown: return "unknown";
     case InputAction::PointerClick: return "pointer_click";
     case InputAction::ScrollLeft: return "scroll_left";
     case InputAction::ScrollRight: return "scroll_right";

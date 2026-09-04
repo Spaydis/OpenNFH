@@ -12,6 +12,7 @@
 namespace opennfh::simulation {
 
 enum class InputAction {
+    Unknown,
     PointerClick,
     ScrollLeft,
     ScrollRight,

@@ -54,8 +54,34 @@ int main() {
     std::vector<std::byte> mp3(16);
     put_text(mp3, 0, "ID3");
     mp3[3] = static_cast<std::byte>(3);
+    mp3[10] = static_cast<std::byte>(0xff);
+    mp3[11] = static_cast<std::byte>(0xfb);
+    mp3[12] = static_cast<std::byte>(0x90);
+    mp3[13] = static_cast<std::byte>(0x60);
     const auto mp3_result = opennfh::io::inspect_audio(mp3);
     assert(mp3_result.has_value());
     assert(mp3_result.value().format == 0x55);
+
+    std::vector<std::byte> id3_only(10);
+    put_text(id3_only, 0, "ID3");
+    id3_only[3] = static_cast<std::byte>(3);
+    const auto id3_only_result = opennfh::io::inspect_audio(id3_only);
+    assert(!id3_only_result.has_value());
+
+    std::vector<std::byte> padded_mp3(421);
+    padded_mp3[417] = static_cast<std::byte>(0xff);
+    padded_mp3[418] = static_cast<std::byte>(0xfb);
+    padded_mp3[419] = static_cast<std::byte>(0x90);
+    padded_mp3[420] = static_cast<std::byte>(0x60);
+    const auto padded_result = opennfh::io::inspect_audio(padded_mp3);
+    assert(padded_result.has_value());
+    assert(padded_result.value().format == 0x55);
+
+    std::vector<std::byte> invalid_frame = {
+        static_cast<std::byte>(0xff), static_cast<std::byte>(0xe0),
+        static_cast<std::byte>(0x00), static_cast<std::byte>(0x00),
+    };
+    const auto invalid_result = opennfh::io::inspect_audio(invalid_frame);
+    assert(!invalid_result.has_value());
     return 0;
 }

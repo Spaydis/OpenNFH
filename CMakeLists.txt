@@ -8,8 +8,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows")
     list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux")
+    list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux")
 endif()
 
+if(UNIX AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux/lib")
+    list(APPEND CMAKE_BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux/lib")
+    list(APPEND CMAKE_BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-linux/debug/lib")
+endif()
 add_library(opennfh_core INTERFACE)
 target_include_directories(opennfh_core INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -18,11 +24,12 @@ target_include_directories(opennfh_core INTERFACE
 find_package(libzip CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
-find_path(STB_IMAGE_INCLUDE_DIR NAMES stb_image.h PATHS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/include" REQUIRED)
+find_path(STB_IMAGE_INCLUDE_DIR NAMES stb_image.h REQUIRED)
 add_library(opennfh_io STATIC
     src/io/zip_vfs.cpp
     src/io/data_root.cpp
     src/io/xml_fragments.cpp
+    src/io/text_codec.cpp
 )
 target_link_libraries(opennfh_io PUBLIC opennfh_core libzip::zip pugixml::pugixml)
 
@@ -35,7 +42,7 @@ endif()
 add_executable(opennfh
     src/app/main.cpp
 )
-target_link_libraries(opennfh PRIVATE opennfh_core)
+target_link_libraries(opennfh PRIVATE opennfh_runtime opennfh_audio)
 
 include(CTest)
 enable_testing()
@@ -85,6 +92,11 @@ if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/deb
     )
 endif()
 
+add_executable(text_codec_test
+    tests/io/text_codec_test.cpp
+)
+target_link_libraries(text_codec_test PRIVATE opennfh_io)
+add_test(NAME text_codec_test COMMAND text_codec_test)
 add_library(opennfh_media STATIC
     src/io/tga_decoder.cpp
     src/io/png_decoder.cpp
@@ -203,12 +215,17 @@ if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/deb
     )
 endif()
 
+add_library(opennfh_audio STATIC
+    src/presentation/audio.cpp
+)
+target_link_libraries(opennfh_audio PUBLIC opennfh_io opennfh_media)
+
 add_library(opennfh_presentation STATIC
     src/presentation/viewport.cpp
     src/presentation/renderer.cpp
+    src/presentation/ui.cpp
 )
-target_link_libraries(opennfh_presentation PUBLIC opennfh_runtime SDL3::SDL3)
-
+target_link_libraries(opennfh_presentation PUBLIC opennfh_runtime opennfh_audio SDL3::SDL3)
 add_executable(viewport_test
     tests/presentation/viewport_test.cpp
 )
@@ -223,6 +240,31 @@ add_test(NAME layer_order_test COMMAND layer_order_test)
 
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
     set_tests_properties(viewport_test layer_order_test PROPERTIES
+        ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
+    )
+endif()
+
+add_executable(ui_test
+    tests/presentation/ui_test.cpp
+)
+target_include_directories(ui_test PRIVATE tests)
+target_link_libraries(ui_test PRIVATE opennfh_presentation)
+add_test(NAME ui_test COMMAND ui_test)
+
+add_executable(presentation_audio_test
+    tests/presentation/audio_catalog_test.cpp
+)
+target_link_libraries(presentation_audio_test PRIVATE opennfh_audio)
+add_test(NAME presentation_audio_test COMMAND presentation_audio_test)
+
+add_executable(local_corpus_test
+    tests/integration/local_corpus_test.cpp
+)
+target_link_libraries(local_corpus_test PRIVATE opennfh_content opennfh_presentation)
+add_test(NAME local_corpus_test COMMAND local_corpus_test)
+
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
+    set_tests_properties(ui_test presentation_audio_test local_corpus_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()

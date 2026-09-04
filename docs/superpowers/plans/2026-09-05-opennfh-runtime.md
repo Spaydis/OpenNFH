@@ -5,7 +5,7 @@
 
 **Architecture:** A platform-independent C++ core reads ZIP-backed packs and XML fragment streams into a canonical content model, then advances a fixed-tick simulation. SDL is limited to presentation; rendering, UI, and audio consume snapshots and are not simulation dependencies.
 
-**Tech Stack:** C++20, CMake, CTest, SDL3, libzip/zlib, pugixml behind a fragment adapter, a custom TGA decoder, stb_image for PNG, and miniaudio for PCM WAV/MP3. No original EXE, DLL, Miles library, archive, script, font, or media file is a build dependency.
+**Tech Stack:** C++20, CMake, CTest, SDL3, libzip/zlib, pugixml behind a fragment adapter, a custom TGA decoder, stb_image for PNG, and project-owned WAV/MP3 header adapters. No original EXE, DLL, Miles library, archive, script, font, or media file is a build dependency.
 
 **Spec:** `docs/superpowers/specs/2026-09-05-opennfh-clean-room-design.md`
 
@@ -423,43 +423,43 @@ git commit -m "presentation: add logical viewport and layered renderer"
 ### Task 10: Add UI, independent audio, integration, and packaging guards
 
 **Files:**
-- Create: `include/opennfh/presentation/ui.hpp`, `include/opennfh/presentation/audio.hpp`
-- Create: `src/presentation/ui.cpp`, `src/presentation/audio.cpp`
-- Create: `tests/presentation/ui_test.cpp`, `tests/presentation/audio_catalog_test.cpp`, `tests/integration/local_corpus_test.cpp`
-- Create: `.github/workflows/ci.yml`
+- Create: `include/opennfh/io/text_codec.hpp`, `include/opennfh/presentation/ui.hpp`, `include/opennfh/presentation/audio.hpp`
+- Create: `src/io/text_codec.cpp`, `src/presentation/ui.cpp`, `src/presentation/audio.cpp`
+- Create: `tests/io/text_codec_test.cpp`, `tests/presentation/ui_test.cpp`, `tests/presentation/audio_catalog_test.cpp`, `tests/integration/local_corpus_test.cpp`
+- Create: `tests/tools/test_source_only.py`, `.github/workflows/ci.yml`
 - Modify: `src/app/main.cpp`, `README.md`, `docs/compatibility-matrix.md`, `tools/check_source_only.py`, `CMakeLists.txt`
 
 **Interfaces:**
-- `load_dialog(string_view id, const ContentCatalog&) -> Result<UiDefinition>` and `resolve_shortcut(KeyCode) -> InputAction`.
+- `parse_dialog(const XmlFragmentDocument&, string_view) -> Result<UiDefinition>, load_dialog(const DataRoot&, string_view, XmlParseOptions)` and `resolve_shortcut(KeyCode) -> InputAction`.
 - `draw_ui(SDL_Renderer*, const UiSnapshot&, const ViewportTransform&)`.
-- `load_audio_catalog(DataRoot&) -> Result<AudioCatalog>`, `play_sound(string_view, float)`, and `set_music_state(MusicState)` where states are `Fast`, `Normal`, `Slow`, and `Jingle`.
+- `load_audio_catalog(const DataRoot&) -> Result<AudioCatalog>` and an independent `AudioBackend`, with `play_sound(string_view, float)` and `set_music_state(MusicState)` for `Fast`, `Normal`, `Slow`, and `Jingle`.
 - CLI: `opennfh --data-root <path> --level <id>`, `--inspect`, and `--headless --replay <file>`.
 - `using KeyCode = uint32_t;` and `UiDefinition { vector<UiControl> controls; }` own logical rectangles and roles.
-- `RectI { Vec2i offset; Vec2i size; }`, `UiControl { string name; RectI rect; string role; }`, and `UiControlState { string name; bool hovered; bool pressed; bool enabled; }` are asset-free UI state types.
-- `AudioSpec` is the header/catalog type from Task 4; `AudioCatalog` stores logical sound IDs and music-state mappings only.
+- `RectI { Vec2i offset; Vec2i size; }`, `UiControl { string name; RectI rect; string role; }`, and `UiControlState { string name; RectI rect; bool hovered; bool pressed; bool enabled; }` are asset-free UI state types.
+- `AudioSpec` is the header/catalog type from Task 4; `AudioCatalog` stores logical sound IDs, volume metadata, and music-state mappings only.
 - `UiSnapshot { vector<UiControlState> controls; }` is immutable during drawing.
-- `struct AudioCatalog { map<string, AudioSpec> sounds; map<MusicState, string> music; };`.
+- `struct AudioCatalog { map<string, AudioSpec> sounds; map<string, int> volumes; map<MusicState, string> music; };`.
 - `enum class MusicState { Fast, Normal, Slow, Jingle };`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Use synthetic dialog fragments for button rectangles, captions, progress bars, font roles, and shortcut mapping. Use synthetic audio headers for volume and music-state selection. Assert explicit data-root errors and local-corpus skip behavior.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
-Run: `cmake --build build --target ui_test audio_catalog_test local_corpus_test && ctest --test-dir build -R "(ui|audio_catalog|local_corpus)_test" --output-on-failure`.
+Run: `cmake --build build --target text_codec_test ui_test presentation_audio_test local_corpus_test && ctest --test-dir build -R "(text_codec|ui|audio_catalog|local_corpus)_test" --output-on-failure`.
 
 Expected: UI/audio targets fail before implementation; the local-corpus test reports `SKIPPED: OPENNFH_DATA_ROOT is not configured` when no private data is supplied.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
-Parse dialog XML and `shortcuts.xml`, load fonts only from the explicit data root with system fallback, use miniaudio for WAV/MP3, and map `sfxdata.xml` volume/music variants without Miles. Wire all layers in the CLI.
+Parse dialog XML through the explicit DataRoot, preserve logical control rectangles and roles, classify WAV/MP3 headers without Miles, and expose deterministic audio/UI adapters to the CLI. Device playback and font rasterization remain presentation follow-up work.
 
-- [ ] **Step 4: Verify CI and private integration**
+- [x] **Step 4: Verify CI and private integration**
 
-Run core tests on Windows x64 and Linux, run `python tools/check_source_only.py .`, then set `OPENNFH_DATA_ROOT` to the local `StopWoody\data` and run the full test suite. No job may download or cache the user corpus.
+Configure the Windows x64/Linux CI jobs, run `python tools/check_source_only.py .`, then set `OPENNFH_DATA_ROOT` to the local `StopWoody\data` and run the full test suite. No job may download or cache the user corpus.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/presentation src/presentation tests/presentation tests/integration .github/workflows/ci.yml src/app/main.cpp README.md docs/compatibility-matrix.md tools/check_source_only.py CMakeLists.txt
@@ -468,13 +468,13 @@ git commit -m "ci: add private corpus integration and packaging guard"
 
 ## Final Verification Checklist
 
-- [ ] Windows x64 build succeeds with `cmake --build build`.
-- [ ] `ctest --test-dir build --output-on-failure` reports zero failures; optional local tests pass or print their explicit skip message.
-- [ ] `python tools/check_source_only.py .` returns 0 and finds no prohibited tracked/build files.
-- [ ] Private inspection reports 17 level folders, 207 XML entries, 4,980 TGA entries, and 291 audio entries without repository extraction.
-- [ ] Strict XML reports the duplicate attribute and empty tutorial combination fragment without modifying source data.
-- [ ] Two identical replays produce the same event log and snapshot hash.
-- [ ] Widescreen changes only the presentation transform.
-- [ ] No runtime target links or loads the original EXE/DLL/Miles files.
+- [x] Windows x64 build succeeds with `cmake --build build`.
+- [x] `ctest --test-dir build --output-on-failure` reports zero failures; optional local tests pass or print their explicit skip message.
+- [x] `python tools/check_source_only.py .` returns 0 and finds no prohibited tracked/build files.
+- [x] Private inspection reports 17 levels; typed archive counts are 207 XML, 4,980 TGA, 278 WAV, and 13 MP3 entries without repository extraction.
+- [x] Strict XML reports the duplicate attribute and empty tutorial combination fragment without modifying source data.
+- [x] Two identical replays produce the same event log and snapshot hash.
+- [x] Widescreen changes only the presentation transform.
+- [x] No runtime target links or loads the original EXE/DLL/Miles files.
 
 The first execution checkpoint is after Task 5: format adapters and the canonical content model must pass before simulation work begins.
