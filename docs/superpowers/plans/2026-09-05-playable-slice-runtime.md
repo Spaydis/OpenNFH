@@ -244,6 +244,7 @@ git commit -m "presentation: add explicit SDL play loop"
 - Create: `src/presentation/wav_player.cpp`
 - Create: `tests/presentation/wav_player_test.cpp`
 - Modify: `include/opennfh/presentation/audio.hpp`
+- Modify: `src/presentation/live.cpp`
 - Modify: `src/presentation/audio.cpp`
 - Modify: `CMakeLists.txt`
 
@@ -251,29 +252,29 @@ git commit -m "presentation: add explicit SDL play loop"
 - `PcmClip { int channels; int sample_rate; int bits; vector<byte> samples; }`.
 - `Result<PcmClip> decode_wav_pcm(span<const byte>)` accepts RIFF/WAVE format 1 with 8/16-bit mono/stereo samples, honors chunk order/padding, and rejects truncated or unsupported headers.
 - `class WavPlayer { Result<bool> open(); void close(); Result<bool> play(const PcmClip&, int volume); bool is_open() const; }` uses SDL audio only in the presentation adapter. Device failure is returned as an error and never changes `WorldState`.
-- `AudioBackend` gains an optional `WavPlayer*` sink; catalog volume is clamped to 0–100 before playback. MP3 remains metadata-only.
+- `AudioBackend` remains a logical catalog/command layer; `WavPlayer` is the independent SDL sink used by live integration. Catalog volume is clamped to 0–100 before playback. MP3 remains metadata-only.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Use synthetic PCM WAVs with `fmt ` before and after `JUNK`, odd-sized chunks, mono/stereo 8/16-bit variants, and truncated/unsupported headers. Assert sample bytes and volume clamp; do not require an audio device in tests.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run: `cmake --build build/ninja --target wav_player_test`
 
 Expected: compilation fails because the PCM clip and player API are absent.
 
-- [ ] **Step 3: Implement the independent WAV adapter**
+- [x] **Step 3: Implement the independent WAV adapter**
 
 Decode the RIFF chunks in memory using bounds checks, convert no samples until an SDL stream format is chosen, and make device opening optional. Keep `AudioCatalog` and simulation free of SDL audio handles.
 
-- [ ] **Step 4: Run audio and full regression tests**
+- [x] **Step 4: Run audio and full regression tests**
 
 Run: `cmake --build build/ninja --target wav_player_test presentation_audio_test && ctest --test-dir build/ninja -R "(wav_player|presentation_audio|audio_catalog|replay_runner)_test" --output-on-failure`
 
 Expected: all selected tests pass on a machine with and without an available audio device.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/presentation/wav_player.hpp src/presentation/wav_player.cpp tests/presentation/wav_player_test.cpp include/opennfh/presentation/audio.hpp src/presentation/audio.cpp CMakeLists.txt
@@ -296,21 +297,21 @@ git commit -m "presentation: add optional PCM WAV playback"
 - With `OPENNFH_DATA_ROOT` set, it loads `level_mail`, builds a world, loads `dialogs/menu.xml`, executes a short deterministic replay, and reports only counts/hash values.
 - The CLI supports `--inspect`, `--level`, `--play`, and `--headless --replay <file> --level <id> --data-root <path>` with nonzero status for invalid combinations.
 
-- [ ] **Step 1: Write the failing integration and CLI tests**
+- [x] **Step 1: Write the failing integration and CLI tests**
 
 Assert skip behavior, real-corpus `level_mail` scene counts, menu dialog loading, replay hash output, typed archive counts, and CLI errors without a data root. Use no original path in a committed fixture.
 
-- [ ] **Step 2: Run the focused integration tests to verify they fail**
+- [x] **Step 2: Run the focused integration tests to verify they fail**
 
 Run: `cmake --build build/ninja --target playable_slice_test opennfh`
 
 Expected: compilation or assertions fail because the complete live/replay/audio wiring is absent.
 
-- [ ] **Step 3: Implement integration wiring and documentation**
+- [x] **Step 3: Implement integration wiring and documentation**
 
 Register all targets and runtime paths in CMake, update CI for Linux RPATH and Windows DLL lookup, document `--play` and replay action names, and keep the private corpus opt-in.
 
-- [ ] **Step 4: Run the complete verification matrix**
+- [x] **Step 4: Run the complete verification matrix**
 
 Run: `cmake --build build/ninja && ctest --test-dir build/ninja --output-on-failure && python -m unittest discover -s tests/tools -p 'test_*.py' -v && python tools/check_source_only.py .`
 
@@ -318,7 +319,7 @@ Then set `OPENNFH_DATA_ROOT` to the local `StopWoody\data` and run `playable_sli
 
 Expected: all public tests pass, the optional test skips without the variable, the private checks pass without extracting data, and the source-only guard returns 0.
 
-- [ ] **Step 5: Commit and push**
+- [x] **Step 5: Commit and push**
 
 ```text
 git add include src tests CMakeLists.txt README.md docs .github/workflows/ci.yml
@@ -328,10 +329,10 @@ git push origin playable-slice
 
 ## Final Verification Checklist
 
-- [ ] Windows x64 build succeeds with `cmake --build build/ninja`.
-- [ ] CTest reports zero failures, including the new scene/input/replay/assets/live/WAV tests.
-- [ ] Python tests and `python tools/check_source_only.py .` pass.
-- [ ] `opennfh.exe` has no SDL dependency on its headless CLI path.
-- [ ] `--headless --replay` produces equal hashes for equal traces and rejects decreasing ticks.
-- [ ] Private corpus checks report 17 levels, 207 XML, 4,980 TGA, 278 WAV, and 13 MP3 entries without extraction.
-- [ ] No original EXE/DLL/BND/media files are tracked or packaged.
+- [x] Windows x64 build succeeds with `cmake --build build/ninja`.
+- [x] CTest reports zero failures, including the new scene/input/replay/assets/live/WAV tests.
+- [x] Python tests and `python tools/check_source_only.py .` pass.
+- [x] `opennfh.exe` makes no SDL initialization or window call on its headless CLI path; the combined executable links SDL for `--play`.
+- [x] `--headless --replay` produces equal hashes for equal traces and rejects decreasing ticks.
+- [x] Private corpus checks report 17 levels, 207 XML, 4,980 TGA, 278 WAV, and 13 MP3 entries without extraction.
+- [x] No original EXE/DLL/BND/media files are tracked or packaged.

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iostream>
 #include <map>
 #include <string>
 #include <string_view>
@@ -11,6 +12,7 @@
 #include "opennfh/presentation/assets.hpp"
 #include "opennfh/presentation/renderer.hpp"
 #include "opennfh/presentation/ui.hpp"
+#include "opennfh/presentation/wav_player.hpp"
 #include "opennfh/simulation/actions.hpp"
 #include "opennfh/simulation/input.hpp"
 #include "opennfh/simulation/neighbor_ai.hpp"
@@ -175,6 +177,16 @@ Result<int> run_level(
         return Result<int>::failure(error(ErrorCode::Io, message));
     }
 
+    const bool audio_subsystem = SDL_InitSubSystem(SDL_INIT_AUDIO);
+    WavPlayer wav_player;
+    if (audio_subsystem) {
+        const auto audio = wav_player.open();
+        if (!audio.has_value()) {
+            std::cerr << "WAV output unavailable: "
+                      << audio.error().message << '\n';
+        }
+    }
+
     AssetCache assets;
     const auto ui = make_ui_snapshot(root, options.dialog_id);
     std::map<simulation::EntityId, simulation::ActionTransaction> active_actions;
@@ -264,6 +276,10 @@ Result<int> run_level(
         SDL_Delay(1);
     }
 
+    wav_player.close();
+    if (audio_subsystem) {
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    }
     assets.release_renderer(renderer);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);

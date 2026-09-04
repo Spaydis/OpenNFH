@@ -304,8 +304,14 @@ add_executable(local_corpus_test
 target_link_libraries(local_corpus_test PRIVATE opennfh_content opennfh_presentation)
 add_test(NAME local_corpus_test COMMAND local_corpus_test)
 
+add_executable(playable_slice_test
+    tests/integration/playable_slice_test.cpp
+)
+target_link_libraries(playable_slice_test PRIVATE opennfh_content opennfh_presentation)
+add_test(NAME playable_slice_test COMMAND playable_slice_test)
+
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
-    set_tests_properties(ui_test presentation_audio_test local_corpus_test PROPERTIES
+    set_tests_properties(ui_test presentation_audio_test local_corpus_test playable_slice_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()
