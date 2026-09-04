@@ -78,27 +78,27 @@ git commit -m "simulation: preserve scene placement and build world entities"
 - `Result<EntityId> resolve_target(const WorldState&, string_view target)` accepts `entity:<decimal-id>` and a plain logical entity kind; plain matches use entity source order.
 - `Result<ActionRequest> action_request_for(const WorldState&, EntityId actor, EntityId target, string_view explicit_action = {})` verifies active entities, same room, and target `ObjectDef`. An explicit action must exist and match the actor kind when the definition provides one; otherwise the first existing `standard_actions` entry is selected.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover overlapping regions, layer/y/source tie-breaking, clicks outside every region, `entity:2`, plain-name target resolution, fallback to the first standard action, explicit action selection, missing definitions, different rooms, and rejection without changing any world field.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run: `cmake --build build/ninja --target input_test`
 
 Expected: compilation fails because the hit-testing and action-selection API is absent.
 
-- [ ] **Step 3: Implement the smallest data-driven resolver**
+- [x] **Step 3: Implement the smallest data-driven resolver**
 
 Use `std::from_chars` for entity IDs, scan existing vectors in source order, and reuse the action definition fields already consumed by `begin_action`. Do not add SDL types or hard-coded content identifiers.
 
-- [ ] **Step 4: Run focused and regression tests**
+- [x] **Step 4: Run focused and regression tests**
 
 Run: `cmake --build build/ninja --target input_test && ctest --test-dir build/ninja -R "(input|scene|actions|navigation)_test" --output-on-failure`
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/simulation/input.hpp src/simulation/input.cpp tests/simulation/input_test.cpp CMakeLists.txt

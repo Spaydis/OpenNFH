@@ -145,6 +145,7 @@ add_library(opennfh_simulation STATIC
     src/simulation/world.cpp
     src/simulation/navigation.cpp
     src/simulation/scene.cpp
+    src/simulation/input.cpp
 )
 target_link_libraries(opennfh_simulation PUBLIC opennfh_content)
 
@@ -153,6 +154,12 @@ add_executable(scene_test
 )
 target_link_libraries(scene_test PRIVATE opennfh_simulation)
 add_test(NAME scene_test COMMAND scene_test)
+
+add_executable(input_test
+    tests/simulation/input_test.cpp
+)
+target_link_libraries(input_test PRIVATE opennfh_simulation)
+add_test(NAME input_test COMMAND input_test)
 
 add_executable(navigation_test
     tests/simulation/navigation_test.cpp
