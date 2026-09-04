@@ -42,7 +42,7 @@ endif()
 add_executable(opennfh
     src/app/main.cpp
 )
-target_link_libraries(opennfh PRIVATE opennfh_runtime opennfh_audio)
+target_link_libraries(opennfh PRIVATE opennfh_presentation)
 
 include(CTest)
 enable_testing()
@@ -144,8 +144,22 @@ endif()
 add_library(opennfh_simulation STATIC
     src/simulation/world.cpp
     src/simulation/navigation.cpp
+    src/simulation/scene.cpp
+    src/simulation/input.cpp
 )
 target_link_libraries(opennfh_simulation PUBLIC opennfh_content)
+
+add_executable(scene_test
+    tests/simulation/scene_test.cpp
+)
+target_link_libraries(scene_test PRIVATE opennfh_simulation)
+add_test(NAME scene_test COMMAND scene_test)
+
+add_executable(input_test
+    tests/simulation/input_test.cpp
+)
+target_link_libraries(input_test PRIVATE opennfh_simulation)
+add_test(NAME input_test COMMAND input_test)
 
 add_executable(navigation_test
     tests/simulation/navigation_test.cpp
@@ -209,6 +223,12 @@ add_executable(replay_test
 target_link_libraries(replay_test PRIVATE opennfh_runtime)
 add_test(NAME replay_test COMMAND replay_test)
 
+add_executable(replay_runner_test
+    tests/simulation/replay_runner_test.cpp
+)
+target_link_libraries(replay_runner_test PRIVATE opennfh_runtime)
+add_test(NAME replay_runner_test COMMAND replay_runner_test)
+
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
     set_tests_properties(neighbor_ai_test progression_test replay_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
@@ -224,6 +244,9 @@ add_library(opennfh_presentation STATIC
     src/presentation/viewport.cpp
     src/presentation/renderer.cpp
     src/presentation/ui.cpp
+    src/presentation/assets.cpp
+    src/presentation/live.cpp
+    src/presentation/wav_player.cpp
 )
 target_link_libraries(opennfh_presentation PUBLIC opennfh_runtime opennfh_audio SDL3::SDL3)
 add_executable(viewport_test
@@ -238,8 +261,26 @@ add_executable(layer_order_test
 target_link_libraries(layer_order_test PRIVATE opennfh_presentation)
 add_test(NAME layer_order_test COMMAND layer_order_test)
 
+add_executable(assets_test
+    tests/presentation/assets_test.cpp
+)
+target_link_libraries(assets_test PRIVATE opennfh_presentation)
+add_test(NAME assets_test COMMAND assets_test)
+
+add_executable(live_options_test
+    tests/presentation/live_options_test.cpp
+)
+target_link_libraries(live_options_test PRIVATE opennfh_presentation)
+add_test(NAME live_options_test COMMAND live_options_test)
+
+add_executable(wav_player_test
+    tests/presentation/wav_player_test.cpp
+)
+target_link_libraries(wav_player_test PRIVATE opennfh_presentation)
+add_test(NAME wav_player_test COMMAND wav_player_test)
+
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
-    set_tests_properties(viewport_test layer_order_test PROPERTIES
+    set_tests_properties(viewport_test layer_order_test assets_test live_options_test wav_player_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()
@@ -263,8 +304,14 @@ add_executable(local_corpus_test
 target_link_libraries(local_corpus_test PRIVATE opennfh_content opennfh_presentation)
 add_test(NAME local_corpus_test COMMAND local_corpus_test)
 
+add_executable(playable_slice_test
+    tests/integration/playable_slice_test.cpp
+)
+target_link_libraries(playable_slice_test PRIVATE opennfh_content opennfh_presentation)
+add_test(NAME playable_slice_test COMMAND playable_slice_test)
+
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
-    set_tests_properties(ui_test presentation_audio_test local_corpus_test PROPERTIES
+    set_tests_properties(ui_test presentation_audio_test local_corpus_test playable_slice_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()

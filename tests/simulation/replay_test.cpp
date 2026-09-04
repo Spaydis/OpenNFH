@@ -9,7 +9,7 @@ int main() {
     const Replay input{
         1,
         {
-            InputEvent{4, InputAction::PointerClick, {10, 20}, "device"},
+            InputEvent{4, InputAction::PointerClick, {10, 20}, "device", "use"},
             InputEvent{9, InputAction::Pause, {0, 0}, {}},
         },
     };
@@ -20,6 +20,7 @@ int main() {
     assert(parsed.value().version == 1);
     assert(parsed.value().events.size() == 2);
     assert(parsed.value().events[0].target == "device");
+    assert(parsed.value().events[0].action_name == "use");
     assert(parsed.value().events[1].action == InputAction::Pause);
 
     SimulationSnapshot snapshot;

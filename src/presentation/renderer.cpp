@@ -88,7 +88,7 @@ std::vector<RenderItem> sort_render_items(std::span<const RenderItem> items) {
     return sorted;
 }
 
-void render_frame(SDL_Renderer* renderer, const RenderSnapshot& snapshot,
+void render_scene(SDL_Renderer* renderer, const RenderSnapshot& snapshot,
                   const AssetCache& assets, const ViewportTransform& transform) {
     if (renderer == nullptr) {
         return;
@@ -120,6 +120,14 @@ void render_frame(SDL_Renderer* renderer, const RenderSnapshot& snapshot,
         };
         SDL_RenderTexture(renderer, texture, nullptr, &destination);
     }
+}
+
+void render_frame(SDL_Renderer* renderer, const RenderSnapshot& snapshot,
+                  const AssetCache& assets, const ViewportTransform& transform) {
+    if (renderer == nullptr) {
+        return;
+    }
+    render_scene(renderer, snapshot, assets, transform);
     SDL_RenderPresent(renderer);
 }
 

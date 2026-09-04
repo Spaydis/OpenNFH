@@ -17,13 +17,18 @@ Examples:
 ~~~
 opennfh.exe --inspect --data-root "C:\path\to\user-data"
 opennfh.exe --level level_mail --data-root "C:\path\to\user-data"
+opennfh.exe --play --level level_mail --data-root "C:\path\to\user-data"
 opennfh.exe --headless --replay "C:\path\to\trace.replay"
 ~~~
 
 --inspect reports archive and catalog counts only. --level uses the
 compatibility duplicate-attribute policy required by the observed corpus;
-the parser itself remains strict by default. Replays contain input events and
-simulation identifiers, never pixels, audio, or original resources. In the current milestone headless mode validates event ordering and produces a deterministic snapshot hash; it does not emulate a full pointer-to-action UI loop. See
+the parser itself remains strict by default. --play opens the SDL live session
+with the logical 948x600 viewport; it requires both --level and --data-root.
+Replays contain input events and
+simulation identifiers, never pixels, audio, or original resources. Headless
+replay with a level executes the fixed-tick action runner and produces a
+deterministic snapshot hash; without a level it validates ordering only. See
 docs/replay-format.md.
 
 ## Build and tests

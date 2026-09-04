@@ -452,7 +452,12 @@ Result<bool> merge_optional_role(
 void parse_level_layout(LevelDefinition& level, const io::XmlNode& root) {
     for (const auto& child : root.children) {
         if (child.name == "object") {
-            level.root_objects.push_back(PlacedObject{attribute(child, "name"), integer(attribute(child, "layer"))});
+            level.root_objects.push_back(PlacedObject{
+                attribute(child, "name"),
+                integer(attribute(child, "layer")),
+                vector2(attribute(child, "position")),
+                boolean(attribute(child, "visible"), true),
+            });
             continue;
         }
         if (child.name != "room") {
@@ -493,7 +498,12 @@ void parse_level_layout(LevelDefinition& level, const io::XmlNode& root) {
                     attribute(item, "animation"),
                 });
             } else if (item.name == "object") {
-                room.objects.push_back(PlacedObject{attribute(item, "name"), integer(attribute(item, "layer"))});
+                room.objects.push_back(PlacedObject{
+                    attribute(item, "name"),
+                    integer(attribute(item, "layer")),
+                    vector2(attribute(item, "position")),
+                    boolean(attribute(item, "visible"), true),
+                });
             }
         }
         level.rooms.push_back(std::move(room));
