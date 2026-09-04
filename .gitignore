@@ -1,0 +1,30 @@
+# Build output
+/build/
+/out/
+
+# User-provided reference data; never commit the original game corpus.
+/data-local/
+/reference-data/
+/assets-local/
+/audio-local/
+/art-local/
+
+# Original or converted game resources.
+**/*.bnd
+**/*.exe
+**/*.dll
+**/*.asi
+**/*.tga
+**/*.png
+**/*.wav
+**/*.mp3
+**/*.ttf
+**/*.fot
+**/*.psd
+**/*.pdn
+**/*.mov
+
+# Local tooling and IDE state.
+.vs/
+.vscode/
+CMakeUserPresets.json
