@@ -12,7 +12,7 @@ PROHIBITED_SUFFIXES = {
     ".asi", ".bnd", ".dll", ".exe", ".fot", ".mp3", ".mov",
     ".pdn", ".png", ".psd", ".tga", ".ttf", ".wav",
 }
-SKIP_DIRECTORY_NAMES = {".git", "build", "out"}
+SKIP_DIRECTORY_NAMES = {".git", "build", "out", "vcpkg_installed"}
 
 
 def iter_files(root: Path):

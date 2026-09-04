@@ -85,8 +85,8 @@ git commit -m "build: bootstrap source-only runtime"
 
 **Files:**
 - Create: `tools/identifier_audit.py`, `tests/tools/test_identifier_audit.py`
-- Create: `include/opennfh/io/zip_vfs.hpp`, `src/io/zip_vfs.cpp`
-- Create: `tests/support/zip_fixture.hpp`, `tests/io/zip_vfs_test.cpp`
+- Create: `include/opennfh/io/zip_vfs.hpp`, `include/opennfh/io/data_root.hpp`, `src/io/zip_vfs.cpp`, `src/io/data_root.cpp`
+- Create: `tests/support/zip_fixture.hpp`, `tests/io/zip_vfs_test.cpp`, `tests/io/data_root_test.cpp``
 - Modify: `CMakeLists.txt`, `README.md`, `docs/compatibility-matrix.md`
 
 **Interfaces:**
@@ -97,7 +97,7 @@ git commit -m "build: bootstrap source-only runtime"
 - `DataRoot::open(path) -> Result<DataRoot>`, `game_data()`, `gfx_data()`, and `sfx_data()` expose the three read-only `ZipVfs` packs.
 - `LoadOptions { XmlParseOptions xml; }` is defined by the content loader and passed unchanged through the data layer.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 def test_utf16le_offsets():
@@ -108,24 +108,24 @@ def test_utf16le_offsets():
 
 Also create a temporary ZIP containing one stored and one deflated entry; assert normalized slash reads and missing-path errors.
 
-- [ ] **Step 2: Run focused tests**
+- [x] **Step 2: Run focused tests**
 
-Run: `python -m pytest tests/tools/test_identifier_audit.py -q` and `ctest --test-dir build -R zip_vfs_test --output-on-failure`.
+Run: `python -m unittest discover -s tests/tools -p 'test_*.py' -v` and `ctest --test-dir build -R zip_vfs_test --output-on-failure`.
 
 Expected: FAIL because the audit and VFS are absent.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Use Python standard library for the audit and libzip for `ZipVfs`. Reject absolute paths and `..`, normalize backslashes, support store/deflate, and never extract or write archive entries. The audit parses XML in memory using a synthetic root and reports binary PE section plus XML element/attribute context.
 
-- [ ] **Step 4: Verify local evidence**
+- [x] **Step 4: Verify local evidence**
 
-Run the audit on both EXE variants and `gamedata.bnd`. Expected: two UTF-16LE `kit/anc` matches per EXE, in `.rdata`; XML context includes door/neighbor references. `opennfh --inspect` reports 207 XML entries for `gamedata.bnd`.
+Run: `python tools/identifier_audit.py --binary <game.exe> --binary <game_original_original.exe> --data-root <data> --needle kit/anc --needle kit/anc_dummy`. Expected: two UTF-16LE `kit/anc` matches per EXE, in `.rdata`; XML context includes door/neighbor references. `identifier_audit.py` reports 207 XML entries for `gamedata.bnd`; `zip_vfs_test` covers direct archive reads.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
-git add tools tests/tools include/opennfh/io/zip_vfs.hpp src/io/zip_vfs.cpp CMakeLists.txt README.md docs/compatibility-matrix.md
+git add tools tests/tools include/opennfh/io src/io tests/io CMakeLists.txt README.md docs/compatibility-matrix.md
 git commit -m "io: audit identifiers and add read-only ZIP VFS"
 ```
 

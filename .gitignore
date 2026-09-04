@@ -1,6 +1,7 @@
 # Build output
 /build/
 /out/
+/vcpkg_installed/
 
 # User-provided reference data; never commit the original game corpus.
 /data-local/
@@ -28,3 +29,5 @@
 .vs/
 .vscode/
 CMakeUserPresets.json
+__pycache__/
+*.pyc
