@@ -2,11 +2,16 @@
 
 #include <charconv>
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
+
+#include "opennfh/simulation/actions.hpp"
+#include "opennfh/simulation/input.hpp"
+#include "opennfh/simulation/neighbor_ai.hpp"
 
 namespace opennfh::simulation {
 
@@ -111,6 +116,7 @@ Result<Replay> read_replay(std::istream& input) {
         std::string x_token;
         std::string y_token;
         std::string target;
+        std::string action_name;
         if (!(row >> tick_token >> action_token_value >> x_token >> y_token)) {
             return Result<Replay>::failure(error("malformed replay event", line_number));
         }
@@ -124,7 +130,15 @@ Result<Replay> read_replay(std::istream& input) {
         if (row >> target && target == "-") {
             target.clear();
         }
-        replay.events.push_back(InputEvent{*tick, *action, {*x, *y}, std::move(target)});
+        if (row >> action_name && action_name == "-") {
+            action_name.clear();
+        }
+        std::string extra;
+        if (row >> extra) {
+            return Result<Replay>::failure(error("replay event has too many fields", line_number));
+        }
+        replay.events.push_back(InputEvent{
+            *tick, *action, {*x, *y}, std::move(target), std::move(action_name)});
     }
     return Result<Replay>::success(std::move(replay));
 }
@@ -134,8 +148,110 @@ void write_replay(std::ostream& output, const Replay& replay) {
     for (const auto& event : replay.events) {
         output << event.tick << ' ' << action_token(event.action) << ' '
                << event.cursor.x << ' ' << event.cursor.y << ' '
-               << (event.target.empty() ? "-" : event.target) << '\n';
+               << (event.target.empty() ? "-" : event.target) << ' '
+               << (event.action_name.empty() ? "-" : event.action_name) << '\n';
     }
+}
+
+Result<ReplayRunResult> run_replay(
+    WorldState& world,
+    const Replay& replay,
+    const ReplayRunOptions& options) {
+    std::map<EntityId, ActionTransaction> active_actions;
+    std::size_t noise_cursor = world.emitted_noise.size();
+    Tick current_tick = 0;
+    Tick previous_event_tick = 0;
+    bool has_previous_event = false;
+    bool paused = false;
+    bool stopped_by_quit = false;
+    std::size_t processed_events = 0;
+
+    const auto advance_tick = [&](Tick tick) {
+        if (paused) {
+            return;
+        }
+        for (auto action = active_actions.begin(); action != active_actions.end();) {
+            advance_action(world, action->second, tick);
+            if (action->second.committed) {
+                action = active_actions.erase(action);
+            } else {
+                ++action;
+            }
+        }
+        while (noise_cursor < world.emitted_noise.size()) {
+            dispatch_noise(world, world.emitted_noise[noise_cursor], tick);
+            ++noise_cursor;
+        }
+        update_neighbor_ai(world, tick);
+    };
+
+    const auto advance_to = [&](Tick target) {
+        while (current_tick < target) {
+            ++current_tick;
+            advance_tick(current_tick);
+        }
+    };
+
+    for (const auto& event : replay.events) {
+        if (has_previous_event && event.tick < previous_event_tick) {
+            return Result<ReplayRunResult>::failure(
+                error("replay events are not ordered by tick"));
+        }
+        previous_event_tick = event.tick;
+        has_previous_event = true;
+        advance_to(event.tick);
+
+        if (event.action == InputAction::Pause) {
+            paused = !paused;
+        } else if (event.action == InputAction::Quit) {
+            stopped_by_quit = true;
+            ++processed_events;
+            break;
+        } else if (event.action == InputAction::PointerClick) {
+            if (event.target.empty()) {
+                if (options.strict_inputs) {
+                    return Result<ReplayRunResult>::failure(
+                        error("pointer replay event has no target"));
+                }
+            } else {
+                if (options.controlled_actor == 0) {
+                    return Result<ReplayRunResult>::failure(
+                        error("replay has no controlled actor"));
+                }
+                const auto target = resolve_target(world, event.target);
+                if (!target.has_value()) {
+                    return Result<ReplayRunResult>::failure(target.error());
+                }
+                const auto request = action_request_for(
+                    world, options.controlled_actor, target.value(), event.action_name);
+                if (!request.has_value()) {
+                    return Result<ReplayRunResult>::failure(request.error());
+                }
+                const auto started = begin_action(world, request.value(), event.tick);
+                if (!started.has_value()) {
+                    return Result<ReplayRunResult>::failure(started.error());
+                }
+                active_actions.emplace(started.value().actor, started.value());
+            }
+        }
+        ++processed_events;
+    }
+
+    if (!stopped_by_quit) {
+        for (std::uint64_t index = 0; index < options.tail_ticks; ++index) {
+            ++current_tick;
+            advance_tick(current_tick);
+        }
+    }
+
+    ReplayRunResult result;
+    result.final_tick = current_tick;
+    result.processed_events = processed_events;
+    result.stopped_by_quit = stopped_by_quit;
+    result.paused = paused;
+    result.snapshot = SimulationSnapshot{current_tick, world.entities, world.quotas};
+    result.snapshot_hash = hash_snapshot(result.snapshot);
+    return Result<ReplayRunResult>::success(std::move(result));
 }
 
 std::uint64_t hash_snapshot(const SimulationSnapshot& snapshot) {

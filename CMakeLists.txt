@@ -223,6 +223,12 @@ add_executable(replay_test
 target_link_libraries(replay_test PRIVATE opennfh_runtime)
 add_test(NAME replay_test COMMAND replay_test)
 
+add_executable(replay_runner_test
+    tests/simulation/replay_runner_test.cpp
+)
+target_link_libraries(replay_runner_test PRIVATE opennfh_runtime)
+add_test(NAME replay_runner_test COMMAND replay_runner_test)
+
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
     set_tests_properties(neighbor_ai_test progression_test replay_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"

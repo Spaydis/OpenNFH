@@ -124,27 +124,27 @@ git commit -m "simulation: resolve input targets and actions"
 
 The runner rejects decreasing ticks, processes events in source order, advances active `ActionTransaction` objects one integer tick at a time, dispatches emitted noise, calls neighbor AI, toggles pause, stops on quit, and applies pointer clicks through `resolve_target` and `action_request_for`. With `strict_inputs=false`, an empty target is ignored; malformed explicit targets and rejected actions remain errors. `tail_ticks` drains active actions after the last event. Snapshot hashing stays limited to simulation state.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add a round-trip event with an action name, assert old replay lines still parse, execute a two-tick synthetic action and observe its committed noise/quota state, verify pause/quit, reject decreasing ticks, and assert two identical runs produce identical `ReplayRunResult.snapshot_hash` values.
 
-- [ ] **Step 2: Run the focused tests to verify they fail**
+- [x] **Step 2: Run the focused tests to verify they fail**
 
 Run: `cmake --build build/ninja --target replay_test replay_runner_test`
 
 Expected: compilation fails because the sixth field and replay runner are absent.
 
-- [ ] **Step 3: Implement replay parsing and the deterministic runner**
+- [x] **Step 3: Implement replay parsing and the deterministic runner**
 
 Parse the optional action token without changing old output semantics, keep active transactions in a local ordered map keyed by actor ID, advance each tick through `advance_action`, consume each new `NoiseEvent` exactly once, and create the result from the final world snapshot.
 
-- [ ] **Step 4: Run all simulation and replay tests**
+- [x] **Step 4: Run all simulation and replay tests**
 
 Run: `cmake --build build/ninja --target replay_test replay_runner_test && ctest --test-dir build/ninja -R "(replay|replay_runner|neighbor_ai|progression|actions|combinations|navigation)_test" --output-on-failure`
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/simulation/replay.hpp src/simulation/replay.cpp tests/simulation/replay_test.cpp tests/simulation/replay_runner_test.cpp docs/replay-format.md CMakeLists.txt
