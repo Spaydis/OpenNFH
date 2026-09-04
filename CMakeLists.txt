@@ -244,6 +244,7 @@ add_library(opennfh_presentation STATIC
     src/presentation/viewport.cpp
     src/presentation/renderer.cpp
     src/presentation/ui.cpp
+    src/presentation/assets.cpp
 )
 target_link_libraries(opennfh_presentation PUBLIC opennfh_runtime opennfh_audio SDL3::SDL3)
 add_executable(viewport_test
@@ -258,8 +259,14 @@ add_executable(layer_order_test
 target_link_libraries(layer_order_test PRIVATE opennfh_presentation)
 add_test(NAME layer_order_test COMMAND layer_order_test)
 
+add_executable(assets_test
+    tests/presentation/assets_test.cpp
+)
+target_link_libraries(assets_test PRIVATE opennfh_presentation)
+add_test(NAME assets_test COMMAND assets_test)
+
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
-    set_tests_properties(viewport_test layer_order_test PROPERTIES
+    set_tests_properties(viewport_test layer_order_test assets_test PROPERTIES
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()

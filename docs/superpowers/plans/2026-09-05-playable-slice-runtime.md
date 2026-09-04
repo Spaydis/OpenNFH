@@ -166,27 +166,27 @@ git commit -m "simulation: execute deterministic input replays"
 - `RenderSnapshot make_render_snapshot(const simulation::WorldState&)` emits one `RenderItem` per active visible entity, retaining entity ID, logical image ID, integer position/layer/y/source order.
 - `AssetCache::insert/find` remain the decoded-image cache; existing SDL texture reuse and `release_renderer` semantics stay intact.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Use a synthetic level definition and a one-pixel TGA fixture to assert render item positions/layers, logical image resolution, missing-image errors, and no mutation of the world when media is missing.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run: `cmake --build build/ninja --target assets_test`
 
 Expected: compilation fails because snapshot construction and DataRoot asset lookup are absent.
 
-- [ ] **Step 3: Implement the presentation-only asset adapter**
+- [x] **Step 3: Implement the presentation-only asset adapter**
 
 Reuse `decode_tga`, keep the level model as the source of logical image references, populate `AssetCache` before rendering, and let `render_frame` skip missing assets after the adapter reports the error.
 
-- [ ] **Step 4: Run presentation and simulation regression tests**
+- [x] **Step 4: Run presentation and simulation regression tests**
 
 Run: `cmake --build build/ninja --target assets_test && ctest --test-dir build/ninja -R "(assets|viewport|layer_order|ui|replay_runner)_test" --output-on-failure`
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/presentation/assets.hpp src/presentation/assets.cpp tests/presentation/assets_test.cpp include/opennfh/presentation/renderer.hpp src/presentation/renderer.cpp CMakeLists.txt
