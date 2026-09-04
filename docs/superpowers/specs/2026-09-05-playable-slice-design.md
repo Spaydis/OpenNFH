@@ -1,6 +1,6 @@
 # OpenNFH Playable Vertical Slice Design
 
-**Status:** draft for review
+**Status:** approved by the user for implementation
 
 **Goal:** Turn the existing source-only OpenNFH runtime into a small playable
 vertical slice. A user-local level can provide deterministic pointer/keyboard
