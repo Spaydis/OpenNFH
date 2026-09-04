@@ -21,6 +21,9 @@ The repository contains code, schemas, tests, generated metadata fixtures, and p
 
 The supplied `*.bnd` files are standard ZIP containers. `gamedata.bnd` contains 207 XML entries, `gfxdata.bnd` contains 4,980 TGA entries, and `sfxdata.bnd` contains 278 WAV plus 13 MP3 entries. The game XML is UTF-8-compatible and several entries are XML fragment streams with multiple top-level elements rather than single XML documents.
 
+Static corroboration from the supplied binaries is useful as an observation source, not as an implementation dependency: both EXE variants contain the UTF-16LE identifiers `kit/anc` and `kit/anc_dummy` in their `.rdata` string pool, and the same identifiers occur in the XML as door/room/object keys. This supports treating these values as stable content identifiers or lookup keys. It does not, by itself, prove that the surrounding code is the XML parser, so the clean implementation models the lookup behavior from data and tests rather than porting binary code.
+
+
 The level data is split into a generic scope and one scope per level. Each level scope normally contains:
 
 ```text
