@@ -145,3 +145,28 @@ if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/deb
         ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
     )
 endif()
+
+add_library(opennfh_gameplay STATIC
+    src/simulation/actions.cpp
+    src/simulation/inventory.cpp
+    src/simulation/combinations.cpp
+)
+target_link_libraries(opennfh_gameplay PUBLIC opennfh_simulation)
+
+add_executable(actions_test
+    tests/simulation/actions_test.cpp
+)
+target_link_libraries(actions_test PRIVATE opennfh_gameplay)
+add_test(NAME actions_test COMMAND actions_test)
+
+add_executable(combinations_test
+    tests/simulation/combinations_test.cpp
+)
+target_link_libraries(combinations_test PRIVATE opennfh_gameplay)
+add_test(NAME combinations_test COMMAND combinations_test)
+
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
+    set_tests_properties(actions_test combinations_test PROPERTIES
+        ENVIRONMENT "PATH=${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin;$ENV{PATH}"
+    )
+endif()

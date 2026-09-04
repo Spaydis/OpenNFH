@@ -1,0 +1,119 @@
+#include "opennfh/simulation/actions.hpp"
+
+#include <algorithm>
+#include <charconv>
+#include <limits>
+#include <string>
+#include <string_view>
+#include <utility>
+
+namespace opennfh::simulation {
+
+namespace {
+
+Error error(ErrorCode code, std::string message) {
+    Error result;
+    result.code = code;
+    result.message = std::move(message);
+    return result;
+}
+
+EntityState* find_entity(WorldState& world, EntityId id) {
+    for (auto& entity : world.entities) {
+        if (entity.id == id && entity.active) {
+            return &entity;
+        }
+    }
+    return nullptr;
+}
+
+const content::ObjectDef* find_object(const WorldState& world, const std::string& kind) {
+    const auto found = world.level.objects.find(kind);
+    return found == world.level.objects.end() ? nullptr : &found->second;
+}
+
+const content::ActionDef* find_action(const content::ObjectDef& object, std::string_view name) {
+    const auto found = std::find_if(object.actions.begin(), object.actions.end(), [&](const auto& action) {
+        return action.name == name;
+    });
+    return found == object.actions.end() ? nullptr : &*found;
+}
+
+int frame_count(const content::ObjectDef& object, std::string_view name) {
+    const auto found = object.animations.find(std::string(name));
+    return found == object.animations.end() ? 0 : static_cast<int>(found->second.frames.size());
+}
+
+Result<Tick> duration_for(const WorldState& world, const EntityState& actor,
+                          const content::ObjectDef& target, const content::ActionDef& action) {
+    if (action.time == "auto") {
+        int duration = frame_count(target, action.object_animation);
+        if (const auto* actor_object = find_object(world, actor.kind); actor_object != nullptr) {
+            duration = std::max(duration, frame_count(*actor_object, action.actor_animation));
+        }
+        return Result<Tick>::success(static_cast<Tick>(std::max(duration, 1)));
+    }
+    Tick value = 0;
+    const auto parsed = std::from_chars(action.time.data(), action.time.data() + action.time.size(), value);
+    if (parsed.ec != std::errc{} || parsed.ptr != action.time.data() + action.time.size()) {
+        return Result<Tick>::failure(error(ErrorCode::Format, "action time is not an integer or auto"));
+    }
+    return Result<Tick>::success(value);
+}
+
+}  // namespace
+
+Result<ActionTransaction> begin_action(WorldState& world, const ActionRequest& request, Tick now) {
+    auto* actor = find_entity(world, request.actor);
+    auto* target = find_entity(world, request.target);
+    if (actor == nullptr || target == nullptr) {
+        return Result<ActionTransaction>::failure(error(ErrorCode::Missing, "action actor or target is missing"));
+    }
+    if (world.busy_entities.contains(request.actor) || world.busy_entities.contains(request.target)) {
+        return Result<ActionTransaction>::failure(error(ErrorCode::InvalidArgument, "action actor or target is busy"));
+    }
+    const auto* object = find_object(world, target->kind);
+    if (object == nullptr) {
+        return Result<ActionTransaction>::failure(error(ErrorCode::Missing, "action target definition is missing"));
+    }
+    const auto* action = find_action(*object, request.action_name);
+    if (action == nullptr) {
+        return Result<ActionTransaction>::failure(error(ErrorCode::Missing, "action definition is missing"));
+    }
+    const auto duration = duration_for(world, *actor, *object, *action);
+    if (!duration.has_value()) {
+        return Result<ActionTransaction>::failure(duration.error());
+    }
+
+    world.busy_entities.insert(request.actor);
+    world.busy_entities.insert(request.target);
+    return Result<ActionTransaction>::success(ActionTransaction{
+        request.actor,
+        request.target,
+        now,
+        duration.value(),
+        action->actor_animation,
+        action->object_animation,
+        action->noise,
+        false,
+    });
+}
+
+void advance_action(WorldState& world, ActionTransaction& transaction, Tick now) {
+    if (transaction.committed || now < transaction.started || now - transaction.started < transaction.duration) {
+        return;
+    }
+    transaction.committed = true;
+    world.busy_entities.erase(transaction.actor);
+    world.busy_entities.erase(transaction.target);
+    if (transaction.noise > 0) {
+        world.emitted_noise.push_back(NoiseEvent{
+            transaction.actor,
+            transaction.noise,
+            world.current_room(transaction.actor),
+            now,
+        });
+    }
+}
+
+}  // namespace opennfh::simulation

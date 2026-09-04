@@ -31,12 +31,25 @@ struct EntityState {
     bool active{true};
 };
 
+struct NoiseEvent {
+    EntityId source{0};
+    int level{0};
+    RoomId room;
+    Tick tick{0};
+};
+
 struct WorldState {
     content::LevelDefinition level;
     std::vector<EntityState> entities;
     std::set<DoorId> blocked_doors;
     std::map<EntityId, std::vector<NavStep>> pending_paths;
     std::map<EntityId, std::size_t> pending_indices;
+    std::map<std::string, bool> flags;
+    std::map<std::string, int> contents;
+    std::vector<std::string> inventory;
+    std::map<std::string, int> quotas;
+    std::set<EntityId> busy_entities;
+    std::vector<NoiseEvent> emitted_noise;
 
     [[nodiscard]] RoomId current_room(EntityId entity) const;
 };

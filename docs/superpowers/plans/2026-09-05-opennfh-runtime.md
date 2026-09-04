@@ -307,25 +307,25 @@ git commit -m "simulation: add deterministic room navigation"
 - `InventoryState { vector<string> items; }`.
 - `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }` is emitted by a committed action and consumed by Task 8.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Cover numeric duration, `time="auto"`, next animations, noise 0/1/2, inventory insertion/removal, `ingredient remove=true/false`, quota increments, and rejected-action no-op behavior.
 
-- [ ] **Step 2: Run the focused tests**
+- [x] **Step 2: Run the focused tests**
 
 Run: `cmake --build build --target actions_test combinations_test && ctest --test-dir build -R "(actions|combinations)_test" --output-on-failure`.
 
 Expected: FAIL because action and combination systems are absent.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Resolve actions through hotspots, allow one transaction per actor, retain integer ticks, update flags/content/inventory only at commit, then emit a `NoiseEvent`. Never hard-code `kit/anc` or another content key.
 
-- [ ] **Step 4: Verify a local interaction level**
+- [x] **Step 4: Verify a local interaction level**
 
 Run a headless replay for `level_peep` or `level_art`; assert action, animation, ingredient, and quota references resolve. Output IDs/counters only.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```text
 git add include/opennfh/simulation/actions.hpp include/opennfh/simulation/inventory.hpp include/opennfh/simulation/combinations.hpp src/simulation tests/simulation/actions_test.cpp tests/simulation/combinations_test.cpp CMakeLists.txt
