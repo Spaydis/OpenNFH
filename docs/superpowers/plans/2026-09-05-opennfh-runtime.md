@@ -1,7 +1,6 @@
 # OpenNFH Runtime Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Build a source-only, deterministic Windows x64 runtime that loads a user-owned OpenNFH data root and reproduces the observed level, interaction, neighbor, UI, audio, and widescreen behavior without shipping original binaries or assets.
 
 **Architecture:** A platform-independent C++ core reads ZIP-backed packs and XML fragment streams into a canonical content model, then advances a fixed-tick simulation. SDL is limited to presentation; rendering, UI, and audio consume snapshots and are not simulation dependencies.
@@ -344,32 +343,15 @@ git commit -m "simulation: add data-driven actions and combinations"
 
 **Interfaces:**
 - Consumes `NoiseEvent` from Task 7; it is not redefined in the AI layer.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
-- `NoiseEvent { EntityId source; int level; RoomId room; Tick tick; }`.
 - `dispatch_noise(WorldState&, const NoiseEvent&, Tick)`, `update_neighbor_ai(WorldState&, Tick)`, and `mark_once_trigger(WorldState&, string_view behavior, string_view trigger_key)`.
-- `evaluate_level(const WorldState&, const ProgressionState&) -> Result<LevelResult>` and `apply_level_result(...)`.
+- `evaluate_level(const WorldState&, const ProgressionState&) -> Result<LevelResult>`.
 - `enum class LevelResult { Failed, Bronze, Silver, Gold };` and `ProgressionState { map<string, LevelState> levels; map<string, int> quotas; }`.
 - `enum class LevelState { Locked, Playable, Completed };`.
 - `InputAction` is the closed enum for pointer click, scrolling, focus, pause, screenshot, levelshot, quit, start-capture, and stop-capture actions.
 - `apply_level_result(ProgressionState&, string_view resource_id, LevelResult)` updates only the in-memory campaign state.
 - `SimulationSnapshot { Tick tick; vector<EntityState> entities; map<string, int> quotas; }` is the asset-free replay state.
-- `hash_snapshot(...)` hashes only `SimulationSnapshot`; decoded pixels and audio are excluded.
-- `InputEvent { Tick tick; InputAction action; Vec2i cursor; string target; }`, `Replay { uint32_t version; vector<InputEvent> events; }`, `read_replay(istream&)`, `write_replay(ostream&, const Replay&)`, and `hash_snapshot(...)`.
-
+- `hash_snapshot(const SimulationSnapshot&)` hashes only the asset-free simulation state; decoded pixels and audio are excluded.
+- `InputEvent { Tick tick; InputAction action; Vec2i cursor; string target; }`, `Replay { uint32_t version; vector<InputEvent> events; }`, `read_replay(istream&)`, and `write_replay(ostream&)`.
 - [ ] **Step 1: Write failing tests**
 
 Assert `once` fires once, `always` can repeat, `nearobj/room/house` filter correctly, noise 0 is silent, quotas update before evaluation, and replay round-trips with equal snapshot hashes.
