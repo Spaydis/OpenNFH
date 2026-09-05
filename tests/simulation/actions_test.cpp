@@ -49,6 +49,23 @@ int main() {
     assert(world.emitted_noise.size() == 1);
     assert(world.emitted_noise[0].level == 2);
 
+    auto grouped = make_world();
+    grouped.level.objects.at("device").gfx = "device_graphics";
+    grouped.level.objects.at("device").actions[0].time = "auto";
+    grouped.level.objects.at("device").animations.clear();
+    opennfh::content::ObjectDef graphics;
+    graphics.name = "device_graphics";
+    graphics.animations["open"] = opennfh::content::AnimationDef{
+        "open", "oneshot", {
+            {"open_0", {}}, {"open_1", {}}, {"open_2", {}},
+            {"open_3", {}}, {"open_4", {}},
+        }, {}};
+    grouped.level.objects.emplace("device_graphics", std::move(graphics));
+    const auto grouped_action = opennfh::simulation::begin_action(
+        grouped, {1, 2, "use"}, 0);
+    assert(grouped_action.has_value());
+    assert(grouped_action.value().duration == 5);
+
     auto automatic = make_world();
     automatic.level.objects["device"].actions[0].time = "auto";
     const auto automatic_action = opennfh::simulation::begin_action(automatic, {1, 2, "use"}, 0);

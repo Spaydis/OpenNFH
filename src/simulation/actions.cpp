@@ -32,24 +32,40 @@ const content::ObjectDef* find_object(const WorldState& world, const std::string
     return found == world.level.objects.end() ? nullptr : &found->second;
 }
 
-const content::ActionDef* find_action(const content::ObjectDef& object, std::string_view name) {
-    const auto found = std::find_if(object.actions.begin(), object.actions.end(), [&](const auto& action) {
-        return action.name == name;
-    });
-    return found == object.actions.end() ? nullptr : &*found;
+const content::ActionDef* find_action(const content::ObjectDef& object,
+                                      std::string_view name,
+                                      std::string_view actor_kind) {
+    const content::ActionDef* fallback = nullptr;
+    for (const auto& action : object.actions) {
+        if (action.name != name) continue;
+        if (action.actor == actor_kind) return &action;
+        if (action.actor.empty()) fallback = &action;
+    }
+    return fallback;
 }
 
-int frame_count(const content::ObjectDef& object, std::string_view name) {
-    const auto found = object.animations.find(std::string(name));
-    return found == object.animations.end() ? 0 : static_cast<int>(found->second.frames.size());
+int frame_count(const WorldState& world, const content::ObjectDef& object,
+                std::string_view name) {
+    const content::ObjectDef* current = &object;
+    for (int depth = 0; current != nullptr && depth < 8; ++depth) {
+        const auto found = current->animations.find(std::string(name));
+        if (found != current->animations.end()) {
+            return static_cast<int>(found->second.frames.size());
+        }
+        const auto next = world.level.objects.find(current->gfx);
+        if (next == world.level.objects.end() || &next->second == current) break;
+        current = &next->second;
+    }
+    return 0;
 }
 
 Result<Tick> duration_for(const WorldState& world, const EntityState& actor,
                           const content::ObjectDef& target, const content::ActionDef& action) {
     if (action.time == "auto") {
-        int duration = frame_count(target, action.object_animation);
+        int duration = frame_count(world, target, action.object_animation);
         if (const auto* actor_object = find_object(world, actor.kind); actor_object != nullptr) {
-            duration = std::max(duration, frame_count(*actor_object, action.actor_animation));
+            duration = std::max(duration,
+                                frame_count(world, *actor_object, action.actor_animation));
         }
         return Result<Tick>::success(static_cast<Tick>(std::max(duration, 1)));
     }
@@ -76,7 +92,7 @@ Result<ActionTransaction> begin_action(WorldState& world, const ActionRequest& r
     if (object == nullptr) {
         return Result<ActionTransaction>::failure(error(ErrorCode::Missing, "action target definition is missing"));
     }
-    const auto* action = find_action(*object, request.action_name);
+    const auto* action = find_action(*object, request.action_name, actor->kind);
     if (action == nullptr) {
         return Result<ActionTransaction>::failure(error(ErrorCode::Missing, "action definition is missing"));
     }
