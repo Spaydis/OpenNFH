@@ -67,5 +67,40 @@ int main() {
     assert(local.value()[0].door.empty());
     assert(local.value()[0].destination.x == 7);
     assert(local.value()[0].destination.y == 8);
+
+    opennfh::simulation::WorldState aliased;
+    aliased.level.rooms = {
+        opennfh::content::Room{
+            "fro", {}, {}, {}, {},
+            {opennfh::content::Door{"fro/anc", 2, {10, 10}, true}},
+            {opennfh::content::NeighborLink{"anc2", 2, "fro/anc", "anc/fro"}}, {}, {},
+        },
+        opennfh::content::Room{
+            "anc2", {}, {}, {}, {},
+            {opennfh::content::Door{"anc/fro", 2, {1, 10}, true}}, {}, {}, {},
+        },
+    };
+    aliased.entities.push_back(
+        opennfh::simulation::EntityState{1, "woody", "fro", {0, 10}, 4, true});
+    const auto alias_path = opennfh::simulation::find_path(aliased, 1, "anc2", {20, 10});
+    assert(alias_path.has_value());
+    assert(alias_path.value().size() == 1);
+    assert(alias_path.value()[0].room == "anc2");
+    assert(alias_path.value()[0].door == "fro/anc");
+    assert(alias_path.value()[0].arrival.x == 1);
+    assert(alias_path.value()[0].destination.x == 20);
+
+    const auto queued = opennfh::simulation::walk_to(aliased, 1, "anc2", {20, 10});
+    assert(queued.has_value());
+    opennfh::simulation::advance_walking(aliased, 1, 6);
+    assert(aliased.entities[0].position.x > 0);
+    for (int tick = 0; tick < 10; ++tick) {
+        opennfh::simulation::advance_walking(aliased, 1, 6);
+    }
+    assert(aliased.entities[0].room == "anc2");
+    assert(aliased.entities[0].position.x == 20);
+    aliased.blocked_doors.insert("anc/fro");
+    const auto blocked = opennfh::simulation::walk_to(aliased, 1, "fro", {0, 10});
+    assert(!blocked.has_value());
     return 0;
 }

@@ -199,11 +199,16 @@ if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/deb
 endif()
 
 add_library(opennfh_runtime STATIC
+    src/simulation/control.cpp
     src/simulation/neighbor_ai.cpp
     src/simulation/progression.cpp
     src/simulation/replay.cpp
 )
 target_link_libraries(opennfh_runtime PUBLIC opennfh_gameplay)
+
+add_executable(control_test tests/simulation/control_test.cpp)
+target_link_libraries(control_test PRIVATE opennfh_runtime)
+add_test(NAME control_test COMMAND control_test)
 
 add_executable(neighbor_ai_test
     tests/simulation/neighbor_ai_test.cpp

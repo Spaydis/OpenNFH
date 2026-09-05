@@ -23,6 +23,8 @@ struct ActionTransaction {
     std::string object_animation;
     int noise{0};
     bool committed{false};
+    std::string actor_next_animation;
+    std::string object_next_animation;
 };
 
 [[nodiscard]] Result<ActionTransaction> begin_action(

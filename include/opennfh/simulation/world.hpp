@@ -20,6 +20,7 @@ struct NavStep {
     DoorId door;
     Vec2i destination;
     int cost{0};
+    Vec2i arrival;
 };
 
 struct EntityState {
@@ -29,6 +30,9 @@ struct EntityState {
     Vec2i position;
     int layer{0};
     bool active{true};
+    bool visible{true};
+    std::string animation;
+    Tick animation_started{0};
 };
 
 struct NoiseEvent {

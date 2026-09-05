@@ -36,12 +36,16 @@ int main() {
     assert(started.value().duration == 3);
     assert(started.value().noise == 2);
     assert(world.busy_entities.contains(1));
+    assert(world.entities[0].animation == "use");
+    assert(world.entities[1].animation == "open");
 
     auto transaction = started.value();
     opennfh::simulation::advance_action(world, transaction, 12);
     assert(world.busy_entities.contains(1));
     opennfh::simulation::advance_action(world, transaction, 13);
     assert(!world.busy_entities.contains(1));
+    assert(world.entities[0].animation == "idle");
+    assert(world.entities[1].animation == "idle");
     assert(world.emitted_noise.size() == 1);
     assert(world.emitted_noise[0].level == 2);
 

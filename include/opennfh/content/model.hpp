@@ -61,6 +61,7 @@ struct PlacedObject {
     int layer{0};
     Vec2i position;
     bool visible{true};
+    std::string animation;
 };
 
 struct Room {
@@ -134,6 +135,7 @@ struct ObjectDef {
     std::vector<ContentItem> contents;
     std::map<std::string, AnimationDef> animations;
     std::vector<GfxFile> gfx_files;
+    std::vector<RegionDef> regions;
 };
 
 struct SoundDef {

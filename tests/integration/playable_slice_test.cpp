@@ -6,6 +6,7 @@
 
 #include "opennfh/content/loader.hpp"
 #include "opennfh/io/data_root.hpp"
+#include "opennfh/presentation/assets.hpp"
 #include "opennfh/presentation/ui.hpp"
 #include "opennfh/simulation/replay.hpp"
 #include "opennfh/simulation/scene.hpp"
@@ -29,6 +30,29 @@ int main() {
 
     auto world = opennfh::simulation::make_world(level.value());
     assert(!world.entities.empty());
+    const auto render = opennfh::presentation::make_render_snapshot(world);
+    assert(!render.items.empty());
+    bool woody_rendered = false;
+    bool door_rendered = false;
+    std::size_t decoded = 0;
+    for (const auto& item : render.items) {
+        const auto image = opennfh::presentation::load_entity_image(
+            root.value(), world, item.entity);
+        if (!image.has_value()) continue;
+        ++decoded;
+        for (const auto& entity : world.entities) {
+            if (entity.id != item.entity) continue;
+            if (entity.kind == "woody") woody_rendered = true;
+            const auto object = world.level.objects.find(entity.kind);
+            if (object != world.level.objects.end() && object->second.kind == "door") {
+                door_rendered = true;
+            }
+            break;
+        }
+    }
+    assert(decoded > 0);
+    assert(woody_rendered);
+    assert(door_rendered);
     const auto dialog = opennfh::presentation::load_dialog(root.value(), "menu");
     assert(dialog.has_value());
     assert(!dialog.value().controls.empty());

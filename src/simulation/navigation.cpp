@@ -1,6 +1,7 @@
 #include "opennfh/simulation/navigation.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <functional>
 #include <limits>
 #include <optional>
@@ -41,42 +42,42 @@ std::string destination_room(std::string_view door) {
     return slash == std::string_view::npos ? std::string{} : std::string(door.substr(slash + 1));
 }
 
-int edge_cost(const content::Room& room, std::string_view door) {
-    for (const auto& neighbor : room.neighbors) {
-        if (neighbor.door_in == door || neighbor.door_out == door) {
-            return neighbor.costs;
-        }
-    }
-    return 1;
-}
-
-Vec2i arrival_position(const content::Room& room, std::string_view from) {
-    const std::string reverse = room.id + "/" + std::string(from);
+const content::Door* find_door(const content::Room& room, std::string_view id) {
     for (const auto& door : room.doors) {
-        if (door.id == reverse) {
-            return door.position;
-        }
+        if (door.id == id) return &door;
     }
-    return {};
+    return nullptr;
 }
 
 std::vector<std::vector<Edge>> build_graph(const WorldState& world) {
     std::vector<std::vector<Edge>> graph(world.level.rooms.size());
     for (std::size_t index = 0; index < world.level.rooms.size(); ++index) {
         const auto& room = world.level.rooms[index];
-        for (const auto& door : room.doors) {
-            if (world.blocked_doors.contains(door.id)) {
+        for (const auto& neighbor : room.neighbors) {
+            // NeighborLink::name is authoritative. Door IDs are resource
+            // names and may not encode the actual destination room.
+            auto destination = room_index(world, neighbor.name);
+            if (!destination.has_value() && !neighbor.door_in.empty()) {
+                destination = room_index(world, destination_room(neighbor.door_in));
+            }
+            if (!destination.has_value()) {
                 continue;
             }
-            const auto destination = room_index(world, destination_room(door.id));
-            if (!destination.has_value()) {
+            const auto* source_door = find_door(room, neighbor.door_in);
+            if (source_door == nullptr || world.blocked_doors.contains(source_door->id)) {
+                continue;
+            }
+            const auto& destination_room_value = world.level.rooms[*destination];
+            const auto* destination_door = find_door(destination_room_value, neighbor.door_out);
+            if (!neighbor.door_out.empty() && destination_door != nullptr &&
+                world.blocked_doors.contains(destination_door->id)) {
                 continue;
             }
             graph[index].push_back(Edge{
                 *destination,
-                door.id,
-                arrival_position(world.level.rooms[*destination], room.id),
-                edge_cost(room, door.id),
+                source_door->id,
+                destination_door == nullptr ? Vec2i{} : destination_door->position,
+                std::max(neighbor.costs, 0),
             });
         }
     }
@@ -100,7 +101,7 @@ Result<std::vector<NavStep>> find_path(
         return Result<std::vector<NavStep>>::failure(error(ErrorCode::Missing, "navigation room is not present"));
     }
     if (*start == *destination) {
-        return Result<std::vector<NavStep>>::success({NavStep{std::string(target_room), {}, target, 0}});
+        return Result<std::vector<NavStep>>::success({NavStep{std::string(target_room), {}, target, 0, target}});
     }
 
     const auto graph = build_graph(world);
@@ -144,7 +145,7 @@ Result<std::vector<NavStep>> find_path(
             return Result<std::vector<NavStep>>::failure(error(ErrorCode::Format, "navigation predecessor chain is invalid"));
         }
         const auto& edge = graph[previous_room[current]][previous_edge[current]];
-        path.push_back(NavStep{world.level.rooms[current].id, edge.door, edge.arrival, edge.cost});
+        path.push_back(NavStep{world.level.rooms[current].id, edge.door, edge.arrival, edge.cost, edge.arrival});
     }
     std::reverse(path.begin(), path.end());
     path.back().destination = target;
@@ -158,6 +159,108 @@ Result<std::vector<NavStep>> find_path(const WorldState& world, EntityId actor, 
 void set_path(WorldState& world, EntityId actor, std::vector<NavStep> path) {
     world.pending_paths[actor] = std::move(path);
     world.pending_indices[actor] = 0;
+}
+
+Result<bool> walk_to(
+    WorldState& world,
+    EntityId actor,
+    std::string_view target_room,
+    Vec2i target) {
+    EntityState* actor_state = nullptr;
+    for (auto& entity : world.entities) {
+        if (entity.id == actor && entity.active) {
+            actor_state = &entity;
+            break;
+        }
+    }
+    if (actor_state == nullptr) {
+        return Result<bool>::failure(error(ErrorCode::Missing, "walking actor is not active"));
+    }
+    if (world.busy_entities.contains(actor)) {
+        return Result<bool>::failure(error(ErrorCode::InvalidArgument, "walking actor is busy"));
+    }
+    if (!room_index(world, target_room).has_value()) {
+        return Result<bool>::failure(error(ErrorCode::Missing, "walking destination room is not present"));
+    }
+    const auto route = find_path(world, actor, target_room, target);
+    if (!route.has_value()) return Result<bool>::failure(route.error());
+
+    std::vector<NavStep> waypoints;
+    RoomId current_room = actor_state->room;
+    for (const auto& step : route.value()) {
+        const auto source = room_index(world, current_room);
+        if (!source.has_value() || !room_index(world, step.room).has_value()) {
+            return Result<bool>::failure(error(ErrorCode::Format, "walking route references an unknown room"));
+        }
+        if (!step.door.empty()) {
+            const auto* source_door = find_door(world.level.rooms[*source], step.door);
+            if (source_door == nullptr) {
+                return Result<bool>::failure(error(ErrorCode::Format, "walking route source door is missing"));
+            }
+            waypoints.push_back(NavStep{
+                current_room, step.door, source_door->position, step.cost, source_door->position});
+            waypoints.push_back(NavStep{
+                step.room, step.door, step.arrival, step.cost, step.arrival});
+        }
+        current_room = step.room;
+    }
+    if (waypoints.empty() || waypoints.back().room != target_room ||
+        waypoints.back().destination.x != target.x ||
+        waypoints.back().destination.y != target.y) {
+        waypoints.push_back(NavStep{std::string(target_room), {}, target, 0, target});
+    }
+    set_path(world, actor, std::move(waypoints));
+    return Result<bool>::success(true);
+}
+
+void advance_walking(WorldState& world, EntityId actor, int units_per_tick) {
+    if (units_per_tick <= 0 || world.busy_entities.contains(actor)) return;
+    auto path = world.pending_paths.find(actor);
+    auto index = world.pending_indices.find(actor);
+    if (path == world.pending_paths.end() || index == world.pending_indices.end()) return;
+
+    EntityState* state = nullptr;
+    for (auto& entity : world.entities) {
+        if (entity.id == actor && entity.active) {
+            state = &entity;
+            break;
+        }
+    }
+    if (state == nullptr) return;
+
+    int budget = units_per_tick;
+    while (budget > 0 && index->second < path->second.size()) {
+        const auto& waypoint = path->second[index->second];
+        if (state->room != waypoint.room) {
+            // Crossing the linked door is the intentional room transition.
+            state->room = waypoint.room;
+            state->position = waypoint.destination;
+            ++index->second;
+            continue;
+        }
+        const int dx = waypoint.destination.x - state->position.x;
+        const int dy = waypoint.destination.y - state->position.y;
+        if (dx == 0 && dy == 0) {
+            ++index->second;
+            continue;
+        }
+        const int step_x = std::min(std::abs(dx), budget) * (dx < 0 ? -1 : 1);
+        state->position.x += step_x;
+        budget -= std::abs(step_x);
+        if (budget > 0 && state->position.x == waypoint.destination.x) {
+            const int step_y = std::min(std::abs(dy), budget) * (dy < 0 ? -1 : 1);
+            state->position.y += step_y;
+            budget -= std::abs(step_y);
+        }
+        if (state->position.x == waypoint.destination.x &&
+            state->position.y == waypoint.destination.y) {
+            ++index->second;
+        }
+    }
+    if (index->second >= path->second.size()) {
+        world.pending_paths.erase(path);
+        world.pending_indices.erase(index);
+    }
 }
 
 void advance_navigation(WorldState& world, EntityId actor, Tick tick) {

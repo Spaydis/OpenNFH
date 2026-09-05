@@ -140,7 +140,7 @@ void parse_campaign_levels(CampaignSet& set, const io::XmlNode& node) {
 
 void upsert_action(ObjectDef& object, ActionDef action) {
     for (auto& existing : object.actions) {
-        if (existing.name == action.name) {
+        if (existing.name == action.name && existing.actor == action.actor) {
             existing = std::move(action);
             return;
         }
@@ -252,6 +252,14 @@ void merge_animations(LevelDefinition& level, const io::XmlFragmentDocument& doc
             auto& object = level.objects[name];
             object.name = name;
             for (const auto& animation_node : object_node->children) {
+                if (animation_node.name == "region") {
+                    object.regions.push_back(RegionDef{
+                        vector2(attribute(animation_node, "position")),
+                        vector2(attribute(animation_node, "size")),
+                        attribute(animation_node, "type"),
+                    });
+                    continue;
+                }
                 if (animation_node.name != "animation") {
                     continue;
                 }
@@ -457,6 +465,7 @@ void parse_level_layout(LevelDefinition& level, const io::XmlNode& root) {
                 integer(attribute(child, "layer")),
                 vector2(attribute(child, "position")),
                 boolean(attribute(child, "visible"), true),
+                attribute(child, "animation"),
             });
             continue;
         }
@@ -503,6 +512,7 @@ void parse_level_layout(LevelDefinition& level, const io::XmlNode& root) {
                     integer(attribute(item, "layer")),
                     vector2(attribute(item, "position")),
                     boolean(attribute(item, "visible"), true),
+                    attribute(item, "animation"),
                 });
             }
         }

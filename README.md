@@ -24,7 +24,11 @@ opennfh.exe --headless --replay "C:\path\to\trace.replay"
 --inspect reports archive and catalog counts only. --level uses the
 compatibility duplicate-attribute policy required by the observed corpus;
 the parser itself remains strict by default. --play opens the SDL live session
-with the logical 948x600 viewport; it requires both --level and --data-root.
+with the logical viewport declared by the selected level (the supplied
+level_mail declares 948x868); it requires both --level and --data-root. In the
+live slice, left-clicking a floor queues gradual movement along the room path,
+and left-clicking an object or door walks to its XML hotspot before starting
+the action.
 Replays contain input events and
 simulation identifiers, never pixels, audio, or original resources. Headless
 replay with a level executes the fixed-tick action runner and produces a

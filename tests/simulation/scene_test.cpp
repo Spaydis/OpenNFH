@@ -22,6 +22,8 @@ int main() {
     assert(world.entities[1].position.y == 40);
     assert(world.entities[1].active);
     assert(world.entities[2].kind == "room/exit");
-    assert(!world.entities[2].active);
+    assert(world.entities[2].active);
+    assert(!world.entities[2].visible);
+    assert(world.entities[0].animation == "idle");
     return 0;
 }

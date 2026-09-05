@@ -105,7 +105,7 @@ Result<std::vector<std::byte>> ZipVfs::read(std::string_view path) const {
     }
 
     zip_stat_t stat{};
-    if (zip_stat(state_->archive.get(), normalized->c_str(), ZIP_FL_ENC_UTF_8, &stat) != 0) {
+    if (zip_stat(state_->archive.get(), normalized->c_str(), ZIP_FL_ENC_UTF_8 | ZIP_FL_NOCASE, &stat) != 0) {
         return Result<std::vector<std::byte>>::failure(
             make_error(ErrorCode::Missing, "ZIP entry not found: " + *normalized));
     }
@@ -113,7 +113,7 @@ Result<std::vector<std::byte>> ZipVfs::read(std::string_view path) const {
         return Result<std::vector<std::byte>>::failure(make_error(ErrorCode::Unsupported, "ZIP entry is too large"));
     }
 
-    zip_file_t* file = zip_fopen(state_->archive.get(), normalized->c_str(), ZIP_FL_ENC_UTF_8);
+    zip_file_t* file = zip_fopen(state_->archive.get(), normalized->c_str(), ZIP_FL_ENC_UTF_8 | ZIP_FL_NOCASE);
     if (file == nullptr) {
         return Result<std::vector<std::byte>>::failure(make_error(ErrorCode::Io, "cannot open ZIP entry: " + *normalized));
     }
@@ -129,7 +129,7 @@ Result<std::vector<std::byte>> ZipVfs::read(std::string_view path) const {
 bool ZipVfs::contains(std::string_view path) const noexcept {
     const auto normalized = normalize_path(path);
     return state_ && state_->archive && normalized.has_value() &&
-           zip_name_locate(state_->archive.get(), normalized->c_str(), ZIP_FL_ENC_UTF_8) >= 0;
+           zip_name_locate(state_->archive.get(), normalized->c_str(), ZIP_FL_ENC_UTF_8 | ZIP_FL_NOCASE) >= 0;
 }
 
 std::vector<ZipEntry> ZipVfs::entries() const {

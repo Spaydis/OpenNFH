@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
-#include <map>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -13,7 +12,7 @@
 #include "opennfh/presentation/renderer.hpp"
 #include "opennfh/presentation/ui.hpp"
 #include "opennfh/presentation/wav_player.hpp"
-#include "opennfh/simulation/actions.hpp"
+#include "opennfh/simulation/control.hpp"
 #include "opennfh/simulation/input.hpp"
 #include "opennfh/simulation/neighbor_ai.hpp"
 #include "opennfh/simulation/scene.hpp"
@@ -59,38 +58,17 @@ void load_visible_assets(
     const io::DataRoot& root,
     const simulation::WorldState& world,
     const RenderSnapshot& snapshot,
-    AssetCache& assets) {
+    AssetCache& assets,
+    simulation::Tick tick) {
     for (const auto& item : snapshot.items) {
         if (assets.find(item.asset_id) != nullptr) {
             continue;
         }
-        const auto image = load_entity_image(root, world, item.entity);
+        const auto image = load_entity_image(root, world, item.entity, tick);
         if (image.has_value()) {
             assets.insert(item.asset_id, image.value());
         }
     }
-}
-
-std::vector<simulation::HitRegion> hit_regions(
-    const RenderSnapshot& snapshot,
-    const AssetCache& assets) {
-    std::vector<simulation::HitRegion> regions;
-    for (const auto& item : snapshot.items) {
-        const auto* image = assets.find(item.asset_id);
-        if (image == nullptr) {
-            continue;
-        }
-        regions.push_back(simulation::HitRegion{
-            item.entity,
-            item.position,
-            {static_cast<int>(image->info.width), static_cast<int>(image->info.height)},
-            item.layer,
-            item.y_order,
-            item.source_order,
-            true,
-        });
-    }
-    return regions;
 }
 
 UiSnapshot make_ui_snapshot(
@@ -189,7 +167,8 @@ Result<int> run_level(
 
     AssetCache assets;
     const auto ui = make_ui_snapshot(root, options.dialog_id);
-    std::map<simulation::EntityId, simulation::ActionTransaction> active_actions;
+    simulation::ControlState control;
+    control.actor = actor;
     std::size_t noise_cursor = 0;
     simulation::Tick tick = 0;
     bool running = true;
@@ -201,11 +180,11 @@ Result<int> run_level(
         int window_width = options.window_width;
         int window_height = options.window_height;
         SDL_GetWindowSize(window, &window_width, &window_height);
-        const auto snapshot = make_render_snapshot(world);
-        load_visible_assets(root, world, snapshot, assets);
+        auto snapshot = make_render_snapshot(world, tick);
+        load_visible_assets(root, world, snapshot, assets, tick);
         const auto transform = make_viewport(ViewportConfig{
             snapshot.logical_size, window_width, window_height, options.integer_scale});
-        const auto regions = hit_regions(snapshot, assets);
+        const auto regions = make_hit_regions(world, snapshot, assets, tick);
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -231,16 +210,14 @@ Result<int> run_level(
                     static_cast<int>(event.button.x),
                     static_cast<int>(event.button.y),
                 }));
-            if (!target.has_value()) {
-                continue;
-            }
-            const auto request = simulation::action_request_for(world, actor, target.value());
-            if (!request.has_value()) {
-                continue;
-            }
-            const auto started = simulation::begin_action(world, request.value(), tick);
-            if (started.has_value()) {
-                active_actions.emplace(started.value().actor, started.value());
+            const auto cursor = transform.to_logical({
+                static_cast<int>(event.button.x),
+                static_cast<int>(event.button.y),
+            });
+            const auto handled = simulation::handle_click(
+                world, control, actor, cursor, target.has_value() ? target.value() : 0);
+            if (!handled.has_value() && target.has_value()) {
+                std::cerr << "click rejected: " << handled.error().message << '\n';
             }
         }
 
@@ -254,14 +231,7 @@ Result<int> run_level(
             if (paused) {
                 continue;
             }
-            for (auto action = active_actions.begin(); action != active_actions.end();) {
-                simulation::advance_action(world, action->second, tick);
-                if (action->second.committed) {
-                    action = active_actions.erase(action);
-                } else {
-                    ++action;
-                }
-            }
+            simulation::update_control(world, control, tick);
             while (noise_cursor < world.emitted_noise.size()) {
                 simulation::dispatch_noise(
                     world, world.emitted_noise[noise_cursor], tick);
@@ -270,6 +240,8 @@ Result<int> run_level(
             simulation::update_neighbor_ai(world, tick);
         }
 
+        snapshot = make_render_snapshot(world, tick);
+        load_visible_assets(root, world, snapshot, assets, tick);
         render_scene(renderer, snapshot, assets, transform);
         draw_ui(renderer, ui, transform);
         SDL_RenderPresent(renderer);

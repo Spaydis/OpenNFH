@@ -87,7 +87,15 @@ Result<ActionTransaction> begin_action(WorldState& world, const ActionRequest& r
 
     world.busy_entities.insert(request.actor);
     world.busy_entities.insert(request.target);
-    return Result<ActionTransaction>::success(ActionTransaction{
+    if (!action->actor_animation.empty()) {
+        actor->animation = action->actor_animation;
+        actor->animation_started = now;
+    }
+    if (!action->object_animation.empty()) {
+        target->animation = action->object_animation;
+        target->animation_started = now;
+    }
+    ActionTransaction transaction{
         request.actor,
         request.target,
         now,
@@ -96,7 +104,10 @@ Result<ActionTransaction> begin_action(WorldState& world, const ActionRequest& r
         action->object_animation,
         action->noise,
         false,
-    });
+    };
+    transaction.actor_next_animation = action->actor_next_animation;
+    transaction.object_next_animation = action->object_next_animation;
+    return Result<ActionTransaction>::success(std::move(transaction));
 }
 
 void advance_action(WorldState& world, ActionTransaction& transaction, Tick now) {
@@ -106,6 +117,16 @@ void advance_action(WorldState& world, ActionTransaction& transaction, Tick now)
     transaction.committed = true;
     world.busy_entities.erase(transaction.actor);
     world.busy_entities.erase(transaction.target);
+    for (auto& entity : world.entities) {
+        if (entity.id == transaction.actor && !transaction.actor_next_animation.empty()) {
+            entity.animation = transaction.actor_next_animation;
+            entity.animation_started = now;
+        }
+        if (entity.id == transaction.target && !transaction.object_next_animation.empty()) {
+            entity.animation = transaction.object_next_animation;
+            entity.animation_started = now;
+        }
+    }
     if (transaction.noise > 0) {
         world.emitted_noise.push_back(NoiseEvent{
             transaction.actor,
