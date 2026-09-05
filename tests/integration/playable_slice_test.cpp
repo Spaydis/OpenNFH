@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 
+#include <algorithm>
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
@@ -30,6 +31,11 @@ int main() {
 
     auto world = opennfh::simulation::make_world(level.value());
     assert(!world.entities.empty());
+    const auto woody_definition = world.level.objects.find("woody");
+    assert(woody_definition != world.level.objects.end());
+    assert(std::any_of(
+        woody_definition->second.speeds.begin(), woody_definition->second.speeds.end(),
+        [](const auto& speed) { return speed.name == "mg0" && speed.speed == 3; }));
     const auto render = opennfh::presentation::make_render_snapshot(world);
     assert(!render.items.empty());
     bool woody_rendered = false;
