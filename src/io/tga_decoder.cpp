@@ -1,5 +1,6 @@
 #include "opennfh/io/image_decoder.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -46,7 +47,8 @@ struct Rgba {
     std::uint8_t alpha{255};
 };
 
-Result<Rgba> read_pixel(std::span<const std::byte> bytes, std::size_t& cursor, std::uint8_t depth) {
+Result<Rgba> read_pixel(std::span<const std::byte> bytes, std::size_t& cursor,
+                        std::uint8_t depth, std::uint8_t descriptor) {
     const std::size_t bytes_per_pixel = depth / 8;
     if (cursor > bytes.size() || bytes.size() - cursor < bytes_per_pixel) {
         return Result<Rgba>::failure(error(ErrorCode::Format, "truncated TGA pixel data"));
@@ -55,10 +57,33 @@ Result<Rgba> read_pixel(std::span<const std::byte> bytes, std::size_t& cursor, s
     if (depth == 16) {
         const auto value = little_u16(bytes, cursor);
         cursor += 2;
-        pixel.red = static_cast<std::uint8_t>(((value >> 1) & 0x1f) * 255 / 31);
-        pixel.green = static_cast<std::uint8_t>(((value >> 6) & 0x1f) * 255 / 31);
-        pixel.blue = static_cast<std::uint8_t>(((value >> 11) & 0x1f) * 255 / 31);
-        pixel.alpha = (value & 1) != 0 ? 255 : 0;
+        if ((descriptor & 0x0f) >= 4) {
+            const auto alpha4 = static_cast<std::uint8_t>((value >> 12) & 0x0f);
+            const auto alpha = static_cast<std::uint8_t>(alpha4 * 17);
+            pixel.alpha = alpha;
+            if (alpha == 0) {
+                pixel.red = 0;
+                pixel.green = 0;
+                pixel.blue = 0;
+            } else {
+                const auto unpremultiply = [alpha](std::uint8_t channel4) {
+                    const auto premultiplied = static_cast<int>(channel4) * 17;
+                    return static_cast<std::uint8_t>(std::min(
+                        255, (premultiplied * 255 + alpha / 2) / alpha));
+                };
+                pixel.red = unpremultiply(static_cast<std::uint8_t>((value >> 8) & 0x0f));
+                pixel.green = unpremultiply(static_cast<std::uint8_t>((value >> 4) & 0x0f));
+                pixel.blue = unpremultiply(static_cast<std::uint8_t>(value & 0x0f));
+            }
+        } else {
+            const auto red5 = static_cast<std::uint8_t>((value >> 11) & 0x1f);
+            const auto green6 = static_cast<std::uint8_t>((value >> 5) & 0x3f);
+            const auto blue5 = static_cast<std::uint8_t>(value & 0x1f);
+            pixel.red = static_cast<std::uint8_t>((red5 << 3) | (red5 >> 2));
+            pixel.green = static_cast<std::uint8_t>((green6 << 2) | (green6 >> 4));
+            pixel.blue = static_cast<std::uint8_t>((blue5 << 3) | (blue5 >> 2));
+            pixel.alpha = 255;
+        }
     } else {
         pixel.blue = byte_at(bytes, cursor);
         pixel.green = byte_at(bytes, cursor + 1);
@@ -144,7 +169,7 @@ Result<ImageRgba8> decode_tga(std::span<const std::byte> bytes) {
             }
         }
         if (run) {
-            const auto pixel = read_pixel(bytes, cursor, depth);
+            const auto pixel = read_pixel(bytes, cursor, depth, descriptor);
             if (!pixel.has_value()) {
                 return Result<ImageRgba8>::failure(pixel.error());
             }
@@ -153,7 +178,7 @@ Result<ImageRgba8> decode_tga(std::span<const std::byte> bytes) {
             }
         } else {
             for (std::size_t count = 0; count < repetitions; ++count) {
-                const auto pixel = read_pixel(bytes, cursor, depth);
+                const auto pixel = read_pixel(bytes, cursor, depth, descriptor);
                 if (!pixel.has_value()) {
                     return Result<ImageRgba8>::failure(pixel.error());
                 }

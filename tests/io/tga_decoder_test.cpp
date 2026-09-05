@@ -32,9 +32,9 @@ std::uint8_t pixel(const opennfh::io::ImageRgba8& image, std::size_t index) {
 }  // namespace
 
 int main() {
-    auto sixteen = header(2, 1, 1, 16, 0x24);
-    append_u16(sixteen, 0x003f);
-    const auto red = opennfh::io::decode_tga(sixteen);
+    auto rgb565 = header(2, 1, 1, 16, 0x20);
+    append_u16(rgb565, 0xF800);
+    const auto red = opennfh::io::decode_tga(rgb565);
     assert(red.has_value());
     assert(red.value().info.width == 1);
     assert(red.value().info.height == 1);
@@ -43,6 +43,24 @@ int main() {
     assert(pixel(red.value(), 1) == 0);
     assert(pixel(red.value(), 2) == 0);
     assert(pixel(red.value(), 3) == 255);
+
+    auto rgba4444 = header(2, 1, 1, 16, 0x24);
+    append_u16(rgba4444, 0xFF30);
+    const auto encoded = opennfh::io::decode_tga(rgba4444);
+    assert(encoded.has_value());
+    assert(pixel(encoded.value(), 0) == 255);
+    assert(pixel(encoded.value(), 1) == 51);
+    assert(pixel(encoded.value(), 2) == 0);
+    assert(pixel(encoded.value(), 3) == 255);
+
+    auto transparent = header(2, 1, 1, 16, 0x24);
+    append_u16(transparent, 0x0000);
+    const auto clear = opennfh::io::decode_tga(transparent);
+    assert(clear.has_value());
+    assert(pixel(clear.value(), 0) == 0);
+    assert(pixel(clear.value(), 1) == 0);
+    assert(pixel(clear.value(), 2) == 0);
+    assert(pixel(clear.value(), 3) == 0);
 
     auto thirty_two = header(2, 1, 1, 32, 0x08);
     thirty_two.push_back(static_cast<std::byte>(0));
