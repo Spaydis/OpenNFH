@@ -9,6 +9,7 @@
 #include "opennfh/io/data_root.hpp"
 #include "opennfh/presentation/assets.hpp"
 #include "opennfh/presentation/ui.hpp"
+#include "opennfh/simulation/control.hpp"
 #include "opennfh/simulation/replay.hpp"
 #include "opennfh/simulation/scene.hpp"
 
@@ -59,6 +60,25 @@ int main() {
     assert(decoded > 0);
     assert(woody_rendered);
     assert(door_rendered);
+
+    auto door_world = opennfh::simulation::make_world(level.value());
+    opennfh::simulation::EntityId door_actor = 0;
+    opennfh::simulation::EntityId fro_door = 0;
+    for (const auto& entity : door_world.entities) {
+        if (entity.active && entity.kind == "woody") door_actor = entity.id;
+        if (entity.active && entity.kind == "fro/anc") fro_door = entity.id;
+    }
+    assert(door_actor != 0);
+    assert(fro_door != 0);
+    opennfh::simulation::ControlState door_control;
+    const auto door_click = opennfh::simulation::handle_click(
+        door_world, door_control, door_actor, {}, fro_door);
+    assert(door_click.has_value());
+    for (opennfh::simulation::Tick tick = 1; tick <= 1000; ++tick) {
+        opennfh::simulation::update_control(door_world, door_control, tick);
+    }
+    assert(door_world.current_room(door_actor) == "anc2");
+    assert(!door_control.door_traversal.has_value());
     const auto dialog = opennfh::presentation::load_dialog(root.value(), "menu");
     assert(dialog.has_value());
     assert(!dialog.value().controls.empty());

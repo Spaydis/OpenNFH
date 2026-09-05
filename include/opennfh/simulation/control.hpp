@@ -1,6 +1,8 @@
 #pragma once
 
 #include <map>
+#include <optional>
+#include <string>
 
 #include "opennfh/core/result.hpp"
 #include "opennfh/simulation/actions.hpp"
@@ -8,11 +10,27 @@
 
 namespace opennfh::simulation {
 
+enum class DoorTraversalPhase {
+    Approach,
+    Entering,
+    Leaving,
+};
+
+struct DoorTraversal {
+    EntityId source_door{0};
+    EntityId destination_door{0};
+    RoomId destination_room;
+    Vec2i source_position;
+    Vec2i destination_position;
+    DoorTraversalPhase phase{DoorTraversalPhase::Approach};
+};
+
 struct ControlState {
     EntityId actor{0};
     EntityId pending_target{0};
     Vec2i pending_position;
     std::map<EntityId, ActionTransaction> active_actions;
+    std::optional<DoorTraversal> door_traversal;
     Tick last_tick{0};
 };
 

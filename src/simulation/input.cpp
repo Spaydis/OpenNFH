@@ -44,13 +44,15 @@ const content::ObjectDef* find_object(
 
 const content::ActionDef* find_action(
     const content::ObjectDef& object,
-    std::string_view name) {
+    std::string_view name,
+    std::string_view actor_kind) {
+    const content::ActionDef* fallback = nullptr;
     for (const auto& action : object.actions) {
-        if (action.name == name) {
-            return &action;
-        }
+        if (action.name != name) continue;
+        if (action.actor == actor_kind) return &action;
+        if (action.actor.empty()) fallback = &action;
     }
-    return nullptr;
+    return fallback;
 }
 
 bool contains(const HitRegion& region, Vec2i cursor) {
@@ -143,10 +145,10 @@ Result<ActionRequest> action_request_for(
 
     const content::ActionDef* selected = nullptr;
     if (!explicit_action.empty()) {
-        selected = find_action(*object, explicit_action);
+        selected = find_action(*object, explicit_action, actor_entity->kind);
     } else {
         for (const auto& name : object->standard_actions) {
-            selected = find_action(*object, name);
+            selected = find_action(*object, name, actor_entity->kind);
             if (selected != nullptr) {
                 break;
             }

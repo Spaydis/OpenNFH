@@ -217,6 +217,10 @@ add_executable(control_test tests/simulation/control_test.cpp)
 target_link_libraries(control_test PRIVATE opennfh_runtime)
 add_test(NAME control_test COMMAND control_test)
 
+add_executable(door_control_test tests/simulation/door_control_test.cpp)
+target_link_libraries(door_control_test PRIVATE opennfh_runtime)
+add_test(NAME door_control_test COMMAND door_control_test)
+
 add_executable(neighbor_ai_test
     tests/simulation/neighbor_ai_test.cpp
 )

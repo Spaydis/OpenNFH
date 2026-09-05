@@ -43,6 +43,30 @@ const content::ObjectDef* object(const WorldState& world, std::string_view kind)
     return found == world.level.objects.end() ? nullptr : &found->second;
 }
 
+const EntityState* door_entity(const WorldState& world, std::string_view room_id,
+                               std::string_view door_id) {
+    for (const auto& entity : world.entities) {
+        if (entity.active && entity.room == room_id && entity.kind == door_id) return &entity;
+    }
+    return nullptr;
+}
+
+const content::NeighborLink* link_for_door(const content::Room& room_value,
+                                           std::string_view door_id) {
+    for (const auto& link : room_value.neighbors) {
+        if (link.door_in == door_id) return &link;
+    }
+    return nullptr;
+}
+
+bool has_action(const content::ObjectDef& object_value, std::string_view name,
+                std::string_view actor_kind) {
+    for (const auto& action : object_value.actions) {
+        if (action.name == name && (action.actor.empty() || action.actor == actor_kind)) return true;
+    }
+    return false;
+}
+
 Vec2i add(Vec2i left, Vec2i right) {
     return {left.x + right.x, left.y + right.y};
 }
@@ -108,6 +132,45 @@ Result<ActionRequest> request_for_control(
     return action_request_for(world, actor, target);
 }
 
+Result<bool> queue_door_traversal(WorldState& world, ControlState& control,
+                                  EntityId actor, const EntityState& door_state,
+                                  const EntityState& actor_state) {
+    const auto* current_room = room(world, actor_state.room);
+    if (current_room == nullptr) {
+        return Result<bool>::failure(error(ErrorCode::Missing, "door source room is missing"));
+    }
+    const auto* link = link_for_door(*current_room, door_state.kind);
+    if (link == nullptr || link->door_out.empty()) {
+        return Result<bool>::failure(error(ErrorCode::Missing, "door has no room transition"));
+    }
+    if (world.blocked_doors.contains(link->door_in) ||
+        world.blocked_doors.contains(link->door_out)) {
+        return Result<bool>::failure(error(ErrorCode::InvalidArgument, "door transition is blocked"));
+    }
+    const auto* destination_room = room(world, link->name);
+    const auto* destination_door = door_entity(world, link->name, link->door_out);
+    const auto* source_object = object(world, door_state.kind);
+    const auto* destination_object = destination_door == nullptr
+        ? nullptr : object(world, destination_door->kind);
+    if (destination_room == nullptr || destination_door == nullptr ||
+        source_object == nullptr || destination_object == nullptr) {
+        return Result<bool>::failure(error(ErrorCode::Missing, "door destination is incomplete"));
+    }
+    if (!has_action(*source_object, "enter", actor_state.kind) ||
+        !has_action(*destination_object, "leave", actor_state.kind)) {
+        return Result<bool>::failure(error(ErrorCode::Missing, "door enter/leave binding is missing"));
+    }
+    const auto source_position = interaction_position(world, door_state, actor_state.kind);
+    const auto destination_position = interaction_position(
+        world, *destination_door, actor_state.kind);
+    const auto queued = walk_to(world, actor, actor_state.room, source_position);
+    if (!queued.has_value()) return queued;
+    control.door_traversal = DoorTraversal{
+        door_state.id, destination_door->id, destination_room->id,
+        source_position, destination_position, DoorTraversalPhase::Approach};
+    return Result<bool>::success(true);
+}
+
 }  // namespace
 
 Result<bool> handle_click(
@@ -131,6 +194,10 @@ Result<bool> handle_click(
         const auto* target_state = active_entity(world, target);
         if (target_state == nullptr || target == actor) {
             return Result<bool>::failure(error(ErrorCode::Missing, "clicked target is not active"));
+        }
+        const auto* target_object = object(world, target_state->kind);
+        if (target_object != nullptr && target_object->kind == "door") {
+            return queue_door_traversal(world, control, actor, *target_state, *actor_state);
         }
         const auto destination = interaction_position(world, *target_state, actor_state->kind);
         const auto queued = walk_to(world, actor, target_state->room, destination);
@@ -182,10 +249,54 @@ void update_control(WorldState& world, ControlState& control, Tick now) {
         control.pending_target = 0;
     }
 
+    if (control.door_traversal.has_value() &&
+        control.door_traversal->phase == DoorTraversalPhase::Approach &&
+        world.pending_paths.find(control.actor) == world.pending_paths.end()) {
+        const auto* actor_state = active_entity(world, control.actor);
+        const auto* source_door = active_entity(world, control.door_traversal->source_door);
+        if (actor_state != nullptr && source_door != nullptr &&
+            actor_state->room == source_door->room &&
+            actor_state->position.x == control.door_traversal->source_position.x &&
+            actor_state->position.y == control.door_traversal->source_position.y) {
+            const auto started = begin_action(world, {
+                control.actor, control.door_traversal->source_door, "enter"}, now);
+            if (started.has_value()) {
+                control.active_actions[started.value().actor] = started.value();
+                control.door_traversal->phase = DoorTraversalPhase::Entering;
+            } else {
+                control.door_traversal.reset();
+            }
+        }
+    }
+
     for (auto action = control.active_actions.begin(); action != control.active_actions.end();) {
         advance_action(world, action->second, now);
         if (action->second.committed) {
+            const auto completed = action->second;
             action = control.active_actions.erase(action);
+            if (control.door_traversal.has_value() &&
+                completed.actor == control.actor &&
+                control.door_traversal->phase == DoorTraversalPhase::Entering &&
+                completed.target == control.door_traversal->source_door) {
+                if (auto* actor_state = active_entity(world, control.actor); actor_state != nullptr) {
+                    actor_state->room = control.door_traversal->destination_room;
+                    actor_state->position = control.door_traversal->destination_position;
+                    const auto started = begin_action(world, {
+                        control.actor, control.door_traversal->destination_door, "leave"}, now);
+                    if (started.has_value()) {
+                        control.active_actions[started.value().actor] = started.value();
+                        control.door_traversal->phase = DoorTraversalPhase::Leaving;
+                    } else {
+                        control.door_traversal.reset();
+                    }
+                } else {
+                    control.door_traversal.reset();
+                }
+            } else if (control.door_traversal.has_value() &&
+                       control.door_traversal->phase == DoorTraversalPhase::Leaving &&
+                       completed.target == control.door_traversal->destination_door) {
+                control.door_traversal.reset();
+            }
         } else {
             ++action;
         }
