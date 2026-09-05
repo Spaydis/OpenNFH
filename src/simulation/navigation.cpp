@@ -49,7 +49,32 @@ const content::Door* find_door(const content::Room& room, std::string_view id) {
     return nullptr;
 }
 
-std::vector<std::vector<Edge>> build_graph(const WorldState& world) {
+Vec2i door_travel_position(const WorldState& world, const content::Room& room,
+                            std::string_view door_id, std::string_view actor_kind) {
+    const auto* door = find_door(room, door_id);
+    if (door == nullptr) return {};
+    Vec2i result = door->position;
+    const auto object = world.level.objects.find(std::string(door_id));
+    if (object == world.level.objects.end()) return result;
+    for (const auto& hotspot : object->second.hotspots) {
+        if (hotspot.name == actor_kind) {
+            result.x += hotspot.offset.x;
+            result.y += hotspot.offset.y;
+            return result;
+        }
+    }
+    for (const auto& hotspot : object->second.hotspots) {
+        if (hotspot.name.empty()) {
+            result.x += hotspot.offset.x;
+            result.y += hotspot.offset.y;
+            return result;
+        }
+    }
+    return result;
+}
+
+std::vector<std::vector<Edge>> build_graph(const WorldState& world,
+                                           std::string_view actor_kind) {
     std::vector<std::vector<Edge>> graph(world.level.rooms.size());
     for (std::size_t index = 0; index < world.level.rooms.size(); ++index) {
         const auto& room = world.level.rooms[index];
@@ -76,7 +101,10 @@ std::vector<std::vector<Edge>> build_graph(const WorldState& world) {
             graph[index].push_back(Edge{
                 *destination,
                 source_door->id,
-                destination_door == nullptr ? Vec2i{} : destination_door->position,
+                destination_door == nullptr
+                    ? Vec2i{}
+                    : door_travel_position(world, destination_room_value,
+                                           destination_door->id, actor_kind),
                 std::max(neighbor.costs, 0),
             });
         }
@@ -104,7 +132,14 @@ Result<std::vector<NavStep>> find_path(
         return Result<std::vector<NavStep>>::success({NavStep{std::string(target_room), {}, target, 0, target}});
     }
 
-    const auto graph = build_graph(world);
+    std::string actor_kind;
+    for (const auto& entity : world.entities) {
+        if (entity.id == actor && entity.active) {
+            actor_kind = entity.kind;
+            break;
+        }
+    }
+    const auto graph = build_graph(world, actor_kind);
     const auto infinity = std::numeric_limits<int>::max();
     std::vector<int> distance(graph.size(), infinity);
     std::vector<std::size_t> previous_room(graph.size(), graph.size());
@@ -197,8 +232,10 @@ Result<bool> walk_to(
             if (source_door == nullptr) {
                 return Result<bool>::failure(error(ErrorCode::Format, "walking route source door is missing"));
             }
+            const auto departure = door_travel_position(
+                world, world.level.rooms[*source], step.door, actor_state->kind);
             waypoints.push_back(NavStep{
-                current_room, step.door, source_door->position, step.cost, source_door->position});
+                current_room, step.door, departure, step.cost, departure});
             waypoints.push_back(NavStep{
                 step.room, step.door, step.arrival, step.cost, step.arrival});
         }
@@ -214,7 +251,7 @@ Result<bool> walk_to(
 }
 
 void advance_walking(WorldState& world, EntityId actor, int units_per_tick) {
-    if (units_per_tick <= 0 || world.busy_entities.contains(actor)) return;
+    if (world.busy_entities.contains(actor)) return;
     auto path = world.pending_paths.find(actor);
     auto index = world.pending_indices.find(actor);
     if (path == world.pending_paths.end() || index == world.pending_indices.end()) return;
@@ -227,6 +264,19 @@ void advance_walking(WorldState& world, EntityId actor, int units_per_tick) {
         }
     }
     if (state == nullptr) return;
+
+    if (units_per_tick <= 0) {
+        units_per_tick = 6;
+        const auto object = world.level.objects.find(state->kind);
+        if (object != world.level.objects.end()) {
+            for (const auto& speed : object->second.speeds) {
+                if (speed.name.starts_with("mg") && speed.speed > 0) {
+                    units_per_tick = speed.speed;
+                    break;
+                }
+            }
+        }
+    }
 
     int budget = units_per_tick;
     while (budget > 0 && index->second < path->second.size()) {

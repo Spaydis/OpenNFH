@@ -162,7 +162,7 @@ void update_control(WorldState& world, ControlState& control, Tick now) {
     control.last_tick = now;
     if (control.actor == 0) return;
 
-    advance_walking(world, control.actor, 6);
+    advance_walking(world, control.actor);
     if (control.pending_target != 0 &&
         world.pending_paths.find(control.actor) == world.pending_paths.end()) {
         const auto* actor_state = active_entity(world, control.actor);

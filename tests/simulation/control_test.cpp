@@ -21,6 +21,7 @@ int main() {
                       {2, "cabinet", "lobby2", {60, 0}, 2, true}};
     content::ObjectDef actor;
     actor.kind = "actor";
+    actor.speeds.push_back({"mg0", 3, 0, 0});
     world.level.objects["woody"] = actor;
     content::ObjectDef cabinet;
     cabinet.kind = "object";
@@ -32,7 +33,7 @@ int main() {
     ControlState control;
     check(handle_click(world, control, 1, {140, 220}, 0).has_value(), "floor click rejected");
     update_control(world, control, 1);
-    check(world.entities[0].position.x > 0 && world.entities[0].position.x < 40, "movement must be gradual");
+    check(world.entities[0].position.x == 3, "movement must use the actor speed profile");
     for (Tick tick=2; tick<20; ++tick) update_control(world, control, tick);
     check(world.entities[0].position.x == 40 && world.entities[0].position.y == 30, "floor projection wrong");
     check(handle_click(world, control, 1, {}, 2).has_value(), "object click rejected");

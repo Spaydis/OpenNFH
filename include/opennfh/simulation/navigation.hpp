@@ -26,7 +26,7 @@ namespace opennfh::simulation {
     std::string_view target_room,
     Vec2i target);
 
-void advance_walking(WorldState& world, EntityId actor, int units_per_tick = 6);
+void advance_walking(WorldState& world, EntityId actor, int units_per_tick = 0);
 
 void set_path(WorldState& world, EntityId actor, std::vector<NavStep> path);
 void advance_navigation(WorldState& world, EntityId actor, Tick tick);
