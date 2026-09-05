@@ -28,7 +28,8 @@ with level-space geometry and an observed default logic cadence of 12 updates
 per second; it requires both --level and --data-root. In the live slice,
 left-clicking a floor queues gradual movement along the room path, and
 left-clicking an object or door walks to its actor-specific XML hotspot before
-starting the action.
+starting the action. Arrow keys scroll the camera, Home follows Woody, and End
+follows the neighbor.
 Replays contain input events and
 simulation identifiers, never pixels, audio, or original resources. Headless
 replay with a level executes the fixed-tick action runner and produces a

@@ -257,6 +257,7 @@ add_library(opennfh_audio STATIC
 target_link_libraries(opennfh_audio PUBLIC opennfh_io opennfh_media)
 
 add_library(opennfh_presentation STATIC
+    src/presentation/camera.cpp
     src/presentation/viewport.cpp
     src/presentation/renderer.cpp
     src/presentation/ui.cpp
@@ -270,6 +271,12 @@ add_executable(viewport_test
 )
 target_link_libraries(viewport_test PRIVATE opennfh_presentation)
 add_test(NAME viewport_test COMMAND viewport_test)
+
+add_executable(camera_test
+    tests/presentation/camera_test.cpp
+)
+target_link_libraries(camera_test PRIVATE opennfh_presentation)
+add_test(NAME camera_test COMMAND camera_test)
 
 add_executable(layer_order_test
     tests/presentation/layer_order_test.cpp

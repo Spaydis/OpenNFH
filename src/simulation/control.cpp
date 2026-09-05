@@ -211,12 +211,6 @@ Result<bool> handle_click(
     if (current == nullptr) {
         return Result<bool>::failure(error(ErrorCode::Missing, "controlled actor room is missing"));
     }
-    if (world.level.meta.size.x > 0 && world.level.meta.size.y > 0 &&
-        (level_cursor.x < 0 || level_cursor.y < 0 ||
-         level_cursor.x >= world.level.meta.size.x ||
-         level_cursor.y >= world.level.meta.size.y)) {
-        return Result<bool>::failure(error(ErrorCode::InvalidArgument, "floor click is outside the level"));
-    }
     const Vec2i local{
         level_cursor.x - current->offset.x,
         level_cursor.y - current->offset.y,

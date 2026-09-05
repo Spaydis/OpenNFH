@@ -152,9 +152,14 @@ Result<io::ImageRgba8> load_entity_image(const io::DataRoot& root,
     return Result<io::ImageRgba8>::failure({ErrorCode::Missing, "render entity is missing"});
 }
 
-RenderSnapshot make_render_snapshot(const simulation::WorldState& world, simulation::Tick tick) {
+RenderSnapshot make_render_snapshot(const simulation::WorldState& world,
+                                    simulation::Tick tick,
+                                    Vec2i camera_offset,
+                                    Vec2i viewport_size) {
     RenderSnapshot snapshot;
-    snapshot.logical_size = world.level.meta.size;
+    snapshot.logical_size = viewport_size.x > 0 && viewport_size.y > 0
+        ? viewport_size : world.level.meta.size;
+    snapshot.camera_offset = camera_offset;
     for (std::size_t index = 0; index < world.entities.size(); ++index) {
         const auto& entity = world.entities[index];
         if (!entity.active || !entity.visible) continue;
@@ -163,6 +168,8 @@ RenderSnapshot make_render_snapshot(const simulation::WorldState& world, simulat
         auto position = origin(world, entity);
         position.x = coordinate(std::int64_t{position.x} + ref.offset.x);
         position.y = coordinate(std::int64_t{position.y} + ref.offset.y);
+        position.x = coordinate(std::int64_t{position.x} - camera_offset.x);
+        position.y = coordinate(std::int64_t{position.y} - camera_offset.y);
         snapshot.items.push_back({entity.id, ref.path, position, entity.layer,
                                   entity_world_position(world, entity).y, index});
     }
@@ -183,7 +190,9 @@ std::vector<simulation::HitRegion> make_hit_regions(
         const auto* group = graphics(world, instance);
         if (!group) continue;
         const auto ref = sprite(world, entity, tick);
-        const auto base = origin(world, entity);
+        auto base = origin(world, entity);
+        base.x = coordinate(std::int64_t{base.x} - snapshot.camera_offset.x);
+        base.y = coordinate(std::int64_t{base.y} - snapshot.camera_offset.y);
         const auto before = result.size();
         const auto add = [&](const std::vector<content::RegionDef>& regions) {
             for (const auto& region : regions) {

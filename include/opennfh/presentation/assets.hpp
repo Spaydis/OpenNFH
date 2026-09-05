@@ -17,7 +17,10 @@ namespace opennfh::presentation {
     simulation::EntityId entity, simulation::Tick tick = 0);
 
 [[nodiscard]] RenderSnapshot make_render_snapshot(
-    const simulation::WorldState& world, simulation::Tick tick = 0);
+    const simulation::WorldState& world,
+    simulation::Tick tick = 0,
+    Vec2i camera_offset = {},
+    Vec2i viewport_size = {});
 
 [[nodiscard]] Vec2i entity_world_position(const simulation::WorldState& world,
                                          const simulation::EntityState& entity);

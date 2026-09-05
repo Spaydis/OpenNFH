@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "opennfh/presentation/assets.hpp"
+#include "opennfh/presentation/camera.hpp"
 #include "opennfh/presentation/renderer.hpp"
 #include "opennfh/presentation/ui.hpp"
 #include "opennfh/presentation/wav_player.hpp"
@@ -35,6 +36,8 @@ InputAction action_for_key(SDL_Keycode key) {
     case SDLK_RIGHT: return InputAction::ScrollRight;
     case SDLK_UP: return InputAction::ScrollUp;
     case SDLK_DOWN: return InputAction::ScrollDown;
+    case SDLK_HOME: return InputAction::CenterWoody;
+    case SDLK_END: return InputAction::FocusNeighbor;
     case SDLK_PAUSE: return InputAction::Pause;
     case SDLK_ESCAPE: return InputAction::Quit;
     default: return InputAction::Unknown;
@@ -174,6 +177,7 @@ Result<int> run_level(
     const auto ui = make_ui_snapshot(root, options.dialog_id);
     simulation::ControlState control;
     control.actor = actor;
+    auto camera = make_camera(world, {800, 600}, actor);
     std::size_t noise_cursor = 0;
     simulation::Tick tick = 0;
     bool running = true;
@@ -186,7 +190,7 @@ Result<int> run_level(
         int window_width = options.window_width;
         int window_height = options.window_height;
         SDL_GetWindowSize(window, &window_width, &window_height);
-        auto snapshot = make_render_snapshot(world, tick);
+        auto snapshot = make_render_snapshot(world, tick, camera.offset, camera.viewport);
         load_visible_assets(root, world, snapshot, assets, tick);
         const auto transform = make_viewport(ViewportConfig{
             snapshot.logical_size, window_width, window_height, options.integer_scale});
@@ -200,7 +204,28 @@ Result<int> run_level(
             }
             if (event.type == SDL_EVENT_KEY_DOWN && event.key.down && !event.key.repeat) {
                 const auto action = action_for_key(event.key.key);
-                if (action == InputAction::Quit) {
+                if (action == InputAction::ScrollLeft) {
+                    scroll_camera(camera, {-32, 0});
+                } else if (action == InputAction::ScrollRight) {
+                    scroll_camera(camera, {32, 0});
+                } else if (action == InputAction::ScrollUp) {
+                    scroll_camera(camera, {0, -32});
+                } else if (action == InputAction::ScrollDown) {
+                    scroll_camera(camera, {0, 32});
+                } else if (action == InputAction::CenterWoody) {
+                    camera.focus = actor;
+                    camera.follow_focus = true;
+                    update_camera(camera, world);
+                } else if (action == InputAction::FocusNeighbor) {
+                    for (const auto& entity : world.entities) {
+                        if (entity.active && entity.kind == "neighbor") {
+                            camera.focus = entity.id;
+                            camera.follow_focus = true;
+                            update_camera(camera, world);
+                            break;
+                        }
+                    }
+                } else if (action == InputAction::Quit) {
                     running = false;
                 } else if (action == InputAction::Pause) {
                     paused = !paused;
@@ -211,17 +236,22 @@ Result<int> run_level(
                 !event.button.down || event.button.button != 1) {
                 continue;
             }
-            const auto target = simulation::hit_test(
-                regions, transform.to_logical({
-                    static_cast<int>(event.button.x),
-                    static_cast<int>(event.button.y),
-                }));
             const auto cursor = transform.to_logical({
                 static_cast<int>(event.button.x),
                 static_cast<int>(event.button.y),
             });
+            if (cursor.x < 0 || cursor.y < 0 ||
+                cursor.x >= snapshot.logical_size.x ||
+                cursor.y >= snapshot.logical_size.y) {
+                continue;
+            }
+            const auto target = simulation::hit_test(regions, cursor);
+            const auto level_cursor = Vec2i{
+                cursor.x + camera.offset.x,
+                cursor.y + camera.offset.y,
+            };
             const auto handled = simulation::handle_click(
-                world, control, actor, cursor, target.has_value() ? target.value() : 0);
+                world, control, actor, level_cursor, target.has_value() ? target.value() : 0);
             if (!handled.has_value() && target.has_value()) {
                 std::cerr << "click rejected: " << handled.error().message << '\n';
             }
@@ -243,9 +273,10 @@ Result<int> run_level(
                 ++noise_cursor;
             }
             simulation::update_neighbor_ai(world, tick);
+            update_camera(camera, world);
         }
 
-        snapshot = make_render_snapshot(world, tick);
+        snapshot = make_render_snapshot(world, tick, camera.offset, camera.viewport);
         load_visible_assets(root, world, snapshot, assets, tick);
         render_scene(renderer, snapshot, assets, transform);
         draw_ui(renderer, ui, transform);

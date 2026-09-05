@@ -26,6 +26,7 @@ struct RenderItem {
 
 struct RenderSnapshot {
     Vec2i logical_size;
+    Vec2i camera_offset;
     std::vector<RenderItem> items;
 };
 

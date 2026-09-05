@@ -33,11 +33,11 @@
 - For `time="auto"`, count frames on the target definition and its chained `gfx` definition, and likewise for the actor definition. The first definition containing the requested animation wins; the result remains at least one tick.
 - Preserve explicit numeric `time` exactly.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add a target proxy whose `gfx` points to a separate graphics object. Put the `open` animation only on that graphics object and assert that `begin_action(...).duration` equals the graphics-group frame count.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 ```
 cmake --build build/ninja --target actions_test
@@ -46,18 +46,18 @@ ctest --test-dir build/ninja -R '^actions_test$' --output-on-failure
 
 Expected: the test fails because the current `duration_for` only searches the target instance.
 
-- [ ] **Step 3: Implement the smallest graphics-chain lookup**
+- [x] **Step 3: Implement the smallest graphics-chain lookup**
 
 Add a bounded eight-link lookup in `actions.cpp` and use it only when resolving `auto` duration. Do not share presentation code or SDL types with simulation.
 
-- [ ] **Step 4: Run action and replay regression tests**
+- [x] **Step 4: Run action and replay regression tests**
 
 ```
 cmake --build build/ninja --target actions_test replay_test replay_runner_test
 ctest --test-dir build/ninja -R '^(actions_test|replay_test|replay_runner_test)$' --output-on-failure
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 git add src/simulation/actions.cpp tests/simulation/actions_test.cpp
@@ -80,7 +80,7 @@ git commit -m "fix: resolve auto action duration through gfx groups"
 - Ordinary object interaction retains the existing hotspot/action path.
 - A missing reverse door or missing `enter/leave` binding rejects the door click without mutating the world.
 
-- [ ] **Step 1: Write the failing door job test**
+- [x] **Step 1: Write the failing door job test**
 
 Create two rooms:
 
@@ -96,7 +96,7 @@ door.actions.push_back({"leave", "woody", "inv", {}, "leave", "ms", "1"});
 
 Click the source door, advance the control for enough logic ticks to cross the hotspot and both actions, then assert that the actor is in `dest` at `{-28, 70}`, the traversal job is empty, and both door animations returned to `ms`.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 ```
 cmake --build build/ninja --target door_control_test control_test
@@ -105,18 +105,18 @@ ctest --test-dir build/ninja -R '^(door_control_test|control_test)$' --output-on
 
 Expected: the new test fails because a `goto` standard action is currently treated as an ordinary action name, while the XML provides `enter` and `leave` actions.
 
-- [ ] **Step 3: Implement the phase machine**
+- [x] **Step 3: Implement the phase machine**
 
 Use the existing `walk_to`, `advance_walking`, `begin_action`, and `advance_action` functions. On a committed source transaction, transition room and position atomically before starting the destination `leave` transaction. Keep only one traversal or ordinary action active for the controlled actor.
 
-- [ ] **Step 4: Run simulation and live regression tests**
+- [x] **Step 4: Run simulation and live regression tests**
 
 ```
 cmake --build build/ninja --target door_control_test control_test navigation_test opennfh
 ctest --test-dir build/ninja -R '^(door_control_test|control_test|navigation_test|actions_test|replay_runner_test|live_options_test)$' --output-on-failure
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```
 git add include/opennfh/simulation/control.hpp src/simulation/control.cpp tests/simulation/control_test.cpp tests/simulation/door_control_test.cpp CMakeLists.txt
@@ -140,11 +140,11 @@ git commit -m "feat: traverse doors through enter and leave jobs"
 - Camera state stores viewport size, integer offset, focus mode, and scroll commands. Render snapshots subtract the camera offset; hit regions use the same offset.
 - Do not choose a world bound from `LevelMeta.size` until the report correlates `SetLevelSizeMsg`, background image dimensions, and the original viewport constants.
 
-- [ ] **Step 1: Write failing camera math tests**
+- [x] **Step 1: Write failing camera math tests**
 
 Assert that a camera offset is applied consistently to both render items and hit regions, that focus clamps only after a proven world bound is supplied, and that the current actor/world coordinates remain integer-valued.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 ```
 cmake --build build/ninja --target camera_test
@@ -153,11 +153,11 @@ ctest --test-dir build/ninja -R '^camera_test$' --output-on-failure
 
 Expected: the target is absent because camera state is not yet modelled separately from `RenderSnapshot.logical_size`.
 
-- [ ] **Step 3: Generate and inspect the PE behavior report**
+- [x] **Step 3: Generate and inspect the PE behavior report**
 
 Run the report with the local `game.exe`, `Loader.dll`, `GFXEngine.dll`, and `SFXEngine.dll`. Record high-level findings only: no recovered function bodies, original paths, or binary blobs.
 
-- [ ] **Step 4: Implement camera only from correlated evidence**
+- [x] **Step 4: Implement camera only from correlated evidence**
 
 Use explicit viewport constants/configuration and preserve the level scene coordinate system. Add `center_woody`, `focus_neighbor`, and arrow-scroll behavior only after their bounds and update order are represented in tests.
 

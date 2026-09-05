@@ -112,6 +112,15 @@ int main() {
     assert(snapshot.items[0].position.x == 133);
     assert(snapshot.items[0].position.y == 244);
 
+    const auto camera_snapshot = opennfh::presentation::make_render_snapshot(
+        world, 0, {100, 200}, {800, 600});
+    assert(camera_snapshot.logical_size.x == 800);
+    assert(camera_snapshot.logical_size.y == 600);
+    assert(camera_snapshot.camera_offset.x == 100);
+    assert(camera_snapshot.camera_offset.y == 200);
+    assert(camera_snapshot.items[0].position.x == 33);
+    assert(camera_snapshot.items[0].position.y == 44);
+
     world.level.objects.at("device").kind = "actor";
     world.level.objects.at("device").hotspot = "20/35";
     const auto actor_frame = opennfh::presentation::make_render_snapshot(world);

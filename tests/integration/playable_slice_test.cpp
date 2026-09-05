@@ -8,6 +8,7 @@
 #include "opennfh/content/loader.hpp"
 #include "opennfh/io/data_root.hpp"
 #include "opennfh/presentation/assets.hpp"
+#include "opennfh/presentation/camera.hpp"
 #include "opennfh/presentation/ui.hpp"
 #include "opennfh/simulation/control.hpp"
 #include "opennfh/simulation/replay.hpp"
@@ -91,6 +92,11 @@ int main() {
         }
     }
     assert(actor != 0);
+    const auto camera = opennfh::presentation::make_camera(world, {800, 600}, actor);
+    const auto camera_render = opennfh::presentation::make_render_snapshot(
+        world, 0, camera.offset, camera.viewport);
+    assert(camera_render.logical_size.x == 800);
+    assert(camera_render.logical_size.y == 600);
     const opennfh::simulation::Replay trace{
         1,
         {opennfh::simulation::InputEvent{
