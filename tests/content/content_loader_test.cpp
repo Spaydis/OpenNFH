@@ -37,6 +37,10 @@ int main() {
     assert(woody.speeds[0].speed == 3);
     assert(woody.speeds[0].start == 0);
     assert(woody.speeds[0].noise == 0);
+    const auto pin = level.value().objects.at("pin");
+    assert(pin.kind == "inventar");
+    assert(pin.images.at("std") == "gui/inv/i_pin_norm.tga");
+    assert(level.value().rooms[0].neighbors[0].costs == 7);
     if (const char* data_root_path = std::getenv("OPENNFH_DATA_ROOT"); data_root_path != nullptr) {
         const auto actual_root = opennfh::io::DataRoot::open(data_root_path);
         assert(actual_root.has_value());

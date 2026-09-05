@@ -83,6 +83,22 @@ int main() {
     const auto dialog = opennfh::presentation::load_dialog(root.value(), "menu");
     assert(dialog.has_value());
     assert(!dialog.value().controls.empty());
+    assert(dialog.value().gfx == "gui/ingame/interface_m.tga");
+    for (const auto dialog_id : {"menuleft", "menuright", "menu_bubble"}) {
+        const auto hud_dialog =
+            opennfh::presentation::load_dialog(root.value(), dialog_id);
+        assert(hud_dialog.has_value());
+        assert(!hud_dialog.value().gfx.empty());
+    }
+    bool has_inventory_images = false;
+    for (const auto& [name, definition] : world.level.objects) {
+        if (definition.kind == "inventar" &&
+            definition.images.contains("std")) {
+            has_inventory_images = true;
+            break;
+        }
+    }
+    assert(has_inventory_images);
 
     opennfh::simulation::EntityId actor = 0;
     for (const auto& entity : world.entities) {

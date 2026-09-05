@@ -20,6 +20,18 @@ int main() {
     assert(definition.value().controls[0].rect.offset.x == 1);
     assert(definition.value().controls[0].rect.size.y == 40);
 
+    const auto hud_document = opennfh::io::parse_xml_fragments(
+        "hud.xml",
+        R"(<dialog gfx="gui/ingame/interface_m.tga" offset="347/597"><button name="inv00" offset="11/57"><image name="std" gfx="gui/inv/i_pins_norm.tga"/></button></dialog>)",
+        {});
+    assert(hud_document.has_value());
+    const auto hud = opennfh::presentation::parse_dialog(hud_document.value(), "hud");
+    assert(hud.has_value());
+    assert(hud.value().gfx == "gui/ingame/interface_m.tga");
+    assert(hud.value().offset.x == 347);
+    assert(hud.value().controls[0].images.size() == 1);
+    assert(hud.value().controls[0].images[0].gfx == "gui/inv/i_pins_norm.tga");
+
     const auto nested = opennfh::io::parse_xml_fragments(
         "nested.xml",
         "<dialog><button name=\"btn\" offset=\"0/0\"><image name=\"hover\"/></button><progressbar name=\"quota\" role=\"progress\" offset=\"2/3\" size=\"4/5\"/></dialog>",

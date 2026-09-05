@@ -46,7 +46,9 @@ int main() {
     assert(path.has_value());
     assert(path.value().size() == 2);
     assert(path.value()[0].door == "start/cheap");
+    assert(path.value()[0].destination_door == "cheap/start");
     assert(path.value()[1].door == "cheap/goal");
+    assert(path.value()[1].destination_door == "goal/cheap");
     assert(path.value().back().destination.x == 50);
     assert(path.value().back().destination.y == 50);
 
@@ -97,6 +99,7 @@ int main() {
     assert(alias_path.value().size() == 1);
     assert(alias_path.value()[0].room == "anc2");
     assert(alias_path.value()[0].door == "fro/anc");
+    assert(alias_path.value()[0].destination_door == "anc/fro");
     assert(alias_path.value()[0].arrival.x == 8);
     assert(alias_path.value()[0].arrival.y == 12);
     assert(alias_path.value()[0].destination.x == 20);

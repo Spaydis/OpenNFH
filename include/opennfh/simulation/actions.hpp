@@ -25,6 +25,7 @@ struct ActionTransaction {
     bool committed{false};
     std::string actor_next_animation;
     std::string object_next_animation;
+    std::string action_name;
 };
 
 [[nodiscard]] Result<ActionTransaction> begin_action(

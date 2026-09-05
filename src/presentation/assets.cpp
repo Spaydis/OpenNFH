@@ -114,6 +114,33 @@ Sprite sprite(const simulation::WorldState& world, const simulation::EntityState
 
 } // namespace
 
+Result<io::ImageRgba8> load_graphic_image(
+    const io::DataRoot& root, std::string_view path) {
+    if (path.empty()) {
+        return Result<io::ImageRgba8>::failure(
+            {ErrorCode::Missing, "graphic path is empty"});
+    }
+    auto bytes = root.gfx_data().read(path);
+    if (!bytes.has_value()) {
+        const auto slash = path.find_last_of('/');
+        if (slash != std::string_view::npos) {
+            bytes = root.gfx_data().read(path.substr(slash + 1));
+        }
+    }
+    if (!bytes.has_value()) {
+        return Result<io::ImageRgba8>::failure(bytes.error());
+    }
+    Result<io::ImageRgba8> image = path.ends_with(".png")
+        ? io::decode_png(bytes.value())
+        : io::decode_tga(bytes.value());
+    if (!image.has_value()) {
+        auto decode_error = image.error();
+        decode_error.source = std::string(path);
+        return Result<io::ImageRgba8>::failure(std::move(decode_error));
+    }
+    return image;
+}
+
 Vec2i entity_world_position(const simulation::WorldState& world, const simulation::EntityState& entity) {
     auto result = entity.position;
     for (const auto& room : world.level.rooms) {
@@ -134,14 +161,7 @@ Result<io::ImageRgba8> load_entity_image(const io::DataRoot& root,
         const auto ref = sprite(world, entity, tick);
         if (ref.path.empty()) return Result<io::ImageRgba8>::failure(
             {ErrorCode::Missing, "entity has no sprite in its current animation", entity.kind});
-        auto bytes = root.gfx_data().read(ref.path);
-        // Legacy manifests may already store an archive-relative frame name.
-        if (!bytes.has_value()) {
-            const auto slash = ref.path.find_last_of('/');
-            if (slash != std::string::npos) bytes = root.gfx_data().read(ref.path.substr(slash + 1));
-        }
-        if (!bytes.has_value()) return Result<io::ImageRgba8>::failure(bytes.error());
-        auto image = ref.path.ends_with(".png") ? io::decode_png(bytes.value()) : io::decode_tga(bytes.value());
+        auto image = load_graphic_image(root, ref.path);
         if (!image.has_value()) {
             auto error = image.error();
             error.source = ref.path;

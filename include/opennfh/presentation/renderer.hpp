@@ -44,6 +44,8 @@ public:
 
     void insert(std::string asset_id, io::ImageRgba8 image);
     [[nodiscard]] const io::ImageRgba8* find(std::string_view asset_id) const;
+    [[nodiscard]] SDL_Texture* texture(
+        SDL_Renderer* renderer, std::string_view asset_id) const;
     [[nodiscard]] std::size_t size() const noexcept { return images_.size(); }
 
     // Call this before destroying the associated SDL renderer.

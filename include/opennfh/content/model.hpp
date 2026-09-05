@@ -141,6 +141,7 @@ struct ObjectDef {
     std::vector<ActionDef> actions;
     std::vector<std::string> flags;
     std::vector<ContentItem> contents;
+    std::map<std::string, std::string> images;
     std::map<std::string, AnimationDef> animations;
     std::vector<GfxFile> gfx_files;
     std::vector<RegionDef> regions;

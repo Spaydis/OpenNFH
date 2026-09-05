@@ -26,9 +26,17 @@ compatibility duplicate-attribute policy required by the observed corpus;
 the parser itself remains strict by default. --play opens the SDL live session
 with level-space geometry and an observed default logic cadence of 12 updates
 per second; it requires both --level and --data-root. In the live slice,
-left-clicking a floor queues gradual movement along the room path, and
-left-clicking an object or door walks to its actor-specific XML hotspot before
-starting the action. Arrow keys scroll the camera, Home follows Woody, and End
+the permanent HUD is composed from the user-owned dialogs/menuleft.xml,
+dialogs/menu.xml, dialogs/menuright.xml, and dialogs/menu_bubble.xml
+definitions. Their dialog offsets, backgrounds, buttons, and inventory
+<inventar> images are read at runtime. Left-clicking a floor queues gradual
+walking along the full path1-to-path2 segment; right-clicking queues the
+corresponding sn* sneak movement. Clicking a room routes through the
+lowest-cost neighbor/doorcost connection and runs the paired door
+enter/leave actions. Clicking an object walks to its actor-specific XML
+hotspot before starting the action. A left-click on an inventory slot selects
+the item for the next object action; the HUD's left/right buttons page through
+the five visible slots. Arrow keys scroll the camera, Home follows Woody, and End
 follows the neighbor.
 Replays contain input events and
 simulation identifiers, never pixels, audio, or original resources. Headless

@@ -92,6 +92,14 @@ Result<ActionTransaction> begin_action(WorldState& world, const ActionRequest& r
     if (object == nullptr) {
         return Result<ActionTransaction>::failure(error(ErrorCode::Missing, "action target definition is missing"));
     }
+    auto& object_contents = world.object_contents[request.target];
+    if (object_contents.empty()) {
+        for (const auto& item : object->contents) {
+            if (item.count > 0) {
+                object_contents[item.name] = item.count;
+            }
+        }
+    }
     const auto* action = find_action(*object, request.action_name, actor->kind);
     if (action == nullptr) {
         return Result<ActionTransaction>::failure(error(ErrorCode::Missing, "action definition is missing"));
@@ -123,6 +131,7 @@ Result<ActionTransaction> begin_action(WorldState& world, const ActionRequest& r
     };
     transaction.actor_next_animation = action->actor_next_animation;
     transaction.object_next_animation = action->object_next_animation;
+    transaction.action_name = request.action_name;
     return Result<ActionTransaction>::success(std::move(transaction));
 }
 
@@ -141,6 +150,17 @@ void advance_action(WorldState& world, ActionTransaction& transaction, Tick now)
         if (entity.id == transaction.target && !transaction.object_next_animation.empty()) {
             entity.animation = transaction.object_next_animation;
             entity.animation_started = now;
+        }
+    }
+    if (transaction.action_name == "take") {
+        auto contents = world.object_contents.find(transaction.target);
+        if (contents != world.object_contents.end()) {
+            for (auto& [name, count] : contents->second) {
+                if (count <= 0) continue;
+                world.inventory.push_back(name);
+                --count;
+                break;
+            }
         }
     }
     if (transaction.noise > 0) {

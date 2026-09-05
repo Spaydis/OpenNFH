@@ -75,5 +75,24 @@ int main() {
     const auto rejected = opennfh::simulation::begin_action(world, {1, 99, "use"}, 0);
     assert(!rejected.has_value());
     assert(rejected.error().code == opennfh::ErrorCode::Missing);
+
+    auto loot = make_world();
+    loot.level.objects.at("device").contents.push_back({"pin", 1});
+    loot.level.objects.at("device").actions.push_back(opennfh::content::ActionDef{
+        "take", "woody", "take0", "idle", {}, {}, "1", 0, {}, {}, false,
+    });
+    const auto take = opennfh::simulation::begin_action(loot, {1, 2, "take"}, 0);
+    assert(take.has_value());
+    auto take_transaction = take.value();
+    opennfh::simulation::advance_action(loot, take_transaction, 1);
+    assert(loot.inventory.size() == 1);
+    assert(loot.inventory[0] == "pin");
+    assert(loot.object_contents.at(2).at("pin") == 0);
+
+    const auto take_again = opennfh::simulation::begin_action(loot, {1, 2, "take"}, 2);
+    assert(take_again.has_value());
+    auto take_again_transaction = take_again.value();
+    opennfh::simulation::advance_action(loot, take_again_transaction, 3);
+    assert(loot.inventory.size() == 1);
     return 0;
 }

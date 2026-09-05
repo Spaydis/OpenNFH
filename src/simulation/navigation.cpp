@@ -17,6 +17,7 @@ namespace {
 struct Edge {
     std::size_t destination{0};
     DoorId door;
+    DoorId destination_door;
     Vec2i arrival;
     int cost{0};
 };
@@ -101,6 +102,7 @@ std::vector<std::vector<Edge>> build_graph(const WorldState& world,
             graph[index].push_back(Edge{
                 *destination,
                 source_door->id,
+                neighbor.door_out,
                 destination_door == nullptr
                     ? Vec2i{}
                     : door_travel_position(world, destination_room_value,
@@ -180,7 +182,14 @@ Result<std::vector<NavStep>> find_path(
             return Result<std::vector<NavStep>>::failure(error(ErrorCode::Format, "navigation predecessor chain is invalid"));
         }
         const auto& edge = graph[previous_room[current]][previous_edge[current]];
-        path.push_back(NavStep{world.level.rooms[current].id, edge.door, edge.arrival, edge.cost, edge.arrival});
+        path.push_back(NavStep{
+            world.level.rooms[current].id,
+            edge.door,
+            edge.arrival,
+            edge.cost,
+            edge.arrival,
+            edge.destination_door,
+        });
     }
     std::reverse(path.begin(), path.end());
     path.back().destination = target;
@@ -235,9 +244,10 @@ Result<bool> walk_to(
             const auto departure = door_travel_position(
                 world, world.level.rooms[*source], step.door, actor_state->kind);
             waypoints.push_back(NavStep{
-                current_room, step.door, departure, step.cost, departure});
+                current_room, step.door, departure, step.cost, departure,
+                step.destination_door});
             waypoints.push_back(NavStep{
-                step.room, step.door, step.arrival, step.cost, step.arrival});
+                step.room, step.destination_door, step.arrival, step.cost, step.arrival});
         }
         current_room = step.room;
     }
@@ -250,11 +260,73 @@ Result<bool> walk_to(
     return Result<bool>::success(true);
 }
 
-void advance_walking(WorldState& world, EntityId actor, int units_per_tick) {
+namespace {
+
+std::string movement_animation(
+    const WorldState& world, const EntityState& state,
+    MovementMode mode, int dx, int dy) {
+    const auto prefix = mode == MovementMode::Sneak ? std::string_view{"sn"}
+                                                    : std::string_view{"mg"};
+    int direction = 0;
+    if (std::abs(dx) >= std::abs(dy)) {
+        direction = dx < 0 ? 2 : 0;
+    } else {
+        direction = dy < 0 ? 1 : 3;
+    }
+    const std::string exact = std::string(prefix) + std::to_string(direction);
+    const auto definition = world.level.objects.find(state.kind);
+    if (definition == world.level.objects.end()) return exact;
+    for (const auto& speed : definition->second.speeds) {
+        if (speed.name == exact && speed.speed > 0) return exact;
+    }
+    for (const auto& speed : definition->second.speeds) {
+        if (speed.name.starts_with(prefix) && speed.speed > 0) return speed.name;
+    }
+    return exact;
+}
+
+int movement_speed(
+    const WorldState& world, const EntityState& state,
+    std::string_view animation, MovementMode mode) {
+    const auto definition = world.level.objects.find(state.kind);
+    if (definition != world.level.objects.end()) {
+        for (const auto& speed : definition->second.speeds) {
+            if (speed.name == animation && speed.speed > 0) return speed.speed;
+        }
+        const auto prefix = mode == MovementMode::Sneak ? std::string_view{"sn"}
+                                                        : std::string_view{"mg"};
+        for (const auto& speed : definition->second.speeds) {
+            if (speed.name.starts_with(prefix) && speed.speed > 0) return speed.speed;
+        }
+    }
+    return 6;
+}
+
+int movement_start(
+    const WorldState& world, const EntityState& state,
+    std::string_view animation) {
+    const auto definition = world.level.objects.find(state.kind);
+    if (definition == world.level.objects.end()) return 0;
+    for (const auto& speed : definition->second.speeds) {
+        if (speed.name == animation) return std::max(speed.start, 0);
+    }
+    return 0;
+}
+
+}  // namespace
+
+void advance_walking_impl(
+    WorldState& world, EntityId actor, MovementMode mode,
+    int units_per_tick, bool allow_room_transition, Tick now) {
     if (world.busy_entities.contains(actor)) return;
     auto path = world.pending_paths.find(actor);
     auto index = world.pending_indices.find(actor);
     if (path == world.pending_paths.end() || index == world.pending_indices.end()) return;
+    if (index->second >= path->second.size()) {
+        world.pending_paths.erase(path);
+        world.pending_indices.erase(index);
+        return;
+    }
 
     EntityState* state = nullptr;
     for (auto& entity : world.entities) {
@@ -265,23 +337,27 @@ void advance_walking(WorldState& world, EntityId actor, int units_per_tick) {
     }
     if (state == nullptr) return;
 
+    const auto& first_waypoint = path->second[index->second];
+    const int first_dx = first_waypoint.destination.x - state->position.x;
+    const int first_dy = first_waypoint.destination.y - state->position.y;
+    const auto animation = movement_animation(world, *state, mode, first_dx, first_dy);
+    if (state->animation != animation) {
+        state->animation = animation;
+        const auto start = static_cast<Tick>(
+            movement_start(world, *state, animation));
+        state->animation_started = now >= start ? now - start : 0;
+    }
     if (units_per_tick <= 0) {
-        units_per_tick = 6;
-        const auto object = world.level.objects.find(state->kind);
-        if (object != world.level.objects.end()) {
-            for (const auto& speed : object->second.speeds) {
-                if (speed.name.starts_with("mg") && speed.speed > 0) {
-                    units_per_tick = speed.speed;
-                    break;
-                }
-            }
-        }
+        units_per_tick = movement_speed(world, *state, animation, mode);
     }
 
-    int budget = units_per_tick;
+    int budget = std::max(units_per_tick, 1);
     while (budget > 0 && index->second < path->second.size()) {
         const auto& waypoint = path->second[index->second];
         if (state->room != waypoint.room) {
+            if (!allow_room_transition) {
+                break;
+            }
             // Crossing the linked door is the intentional room transition.
             state->room = waypoint.room;
             state->position = waypoint.destination;
@@ -311,6 +387,17 @@ void advance_walking(WorldState& world, EntityId actor, int units_per_tick) {
         world.pending_paths.erase(path);
         world.pending_indices.erase(index);
     }
+}
+
+void advance_walking(
+    WorldState& world, EntityId actor, MovementMode mode,
+    int units_per_tick, Tick now) {
+    advance_walking_impl(world, actor, mode, units_per_tick, false, now);
+}
+
+void advance_walking(WorldState& world, EntityId actor, int units_per_tick) {
+    advance_walking_impl(
+        world, actor, MovementMode::Walk, units_per_tick, true, 0);
 }
 
 void advance_navigation(WorldState& world, EntityId actor, Tick tick) {

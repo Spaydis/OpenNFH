@@ -11,6 +11,9 @@
 
 namespace opennfh::presentation {
 
+[[nodiscard]] Result<io::ImageRgba8> load_graphic_image(
+    const io::DataRoot& root, std::string_view path);
+
 [[nodiscard]] Result<io::ImageRgba8> load_entity_image(
     const io::DataRoot& root,
     const simulation::WorldState& world,

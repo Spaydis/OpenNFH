@@ -1,8 +1,10 @@
 #include "opennfh/presentation/live.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdint>
 #include <iostream>
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -77,17 +79,111 @@ void load_visible_assets(
 
 UiSnapshot make_ui_snapshot(
     const io::DataRoot& root,
-    std::string_view dialog_id) {
+    std::initializer_list<std::string_view> dialog_ids) {
     UiSnapshot snapshot;
-    const auto definition = load_dialog(root, dialog_id);
-    if (!definition.has_value()) {
-        return snapshot;
+    snapshot.inventory_slots = 0;
+    std::vector<std::string_view> loaded_dialogs;
+    for (const auto dialog_id : dialog_ids) {
+        if (std::find(loaded_dialogs.begin(), loaded_dialogs.end(), dialog_id) !=
+            loaded_dialogs.end()) {
+            continue;
+        }
+        loaded_dialogs.push_back(dialog_id);
+        const auto definition = load_dialog(root, dialog_id);
+        if (!definition.has_value()) {
+            continue;
+        }
+        const auto background_asset_id = "ui:" + definition.value().gfx;
+        snapshot.backgrounds.push_back(
+            {background_asset_id, definition.value().offset});
+        if (snapshot.backgrounds.size() == 1) {
+            snapshot.background_asset_id = background_asset_id;
+            snapshot.background_position = definition.value().offset;
+        }
+        for (const auto& control : definition.value().controls) {
+            auto rect = control.rect;
+            rect.offset.x += definition.value().offset.x;
+            rect.offset.y += definition.value().offset.y;
+            if (rect.size.x <= 0 || rect.size.y <= 0) {
+                if (control.name.starts_with("inv")) {
+                    rect.size = {75, 57};
+                } else if (control.name == "left" || control.name == "right") {
+                    rect.size = {37, 37};
+                } else if (!control.images.empty()) {
+                    const auto image = load_graphic_image(
+                        root, control.images.front().gfx);
+                    if (image.has_value()) {
+                        rect.size = {
+                            static_cast<int>(image.value().info.width),
+                            static_cast<int>(image.value().info.height),
+                        };
+                    }
+                }
+            }
+            snapshot.controls.push_back(UiControlState{
+                control.name, rect, false, false, true, control.images});
+            if (control.name.starts_with("inv")) {
+                ++snapshot.inventory_slots;
+            }
+        }
     }
-    for (const auto& control : definition.value().controls) {
-        snapshot.controls.push_back(UiControlState{
-            control.name, control.rect, false, false, true});
+    if (snapshot.inventory_slots == 0) {
+        snapshot.inventory_slots = 5;
     }
     return snapshot;
+}
+
+void load_ui_assets(
+    const io::DataRoot& root,
+    const simulation::WorldState& world,
+    const UiSnapshot& snapshot,
+    AssetCache& assets) {
+    const auto load = [&](std::string asset_id, std::string_view path) {
+        if (path.empty() || assets.find(asset_id) != nullptr) {
+            return;
+        }
+        const auto image = load_graphic_image(root, path);
+        if (image.has_value()) {
+            assets.insert(std::move(asset_id), image.value());
+        }
+    };
+    for (const auto& background : snapshot.backgrounds) {
+        if (background.asset_id.starts_with("ui:")) {
+            load(background.asset_id, background.asset_id.substr(3));
+        }
+    }
+    if (snapshot.backgrounds.empty() &&
+        snapshot.background_asset_id.starts_with("ui:")) {
+        load(snapshot.background_asset_id,
+             snapshot.background_asset_id.substr(3));
+    }
+    for (const auto& control : snapshot.controls) {
+        for (const auto& image : control.images) {
+            load("ui:" + image.gfx, image.gfx);
+        }
+    }
+    for (const auto& item : snapshot.inventory_items) {
+        const auto definition = world.level.objects.find(item);
+        if (definition == world.level.objects.end()) {
+            continue;
+        }
+        for (const auto& [state, path] : definition->second.images) {
+            load("inventory:" + item + ":" + state, path);
+        }
+    }
+}
+
+std::optional<std::size_t> inventory_slot(std::string_view name) {
+    if (!name.starts_with("inv") || name.size() <= 3) {
+        return std::nullopt;
+    }
+    std::size_t value = 0;
+    const auto parsed = std::from_chars(
+        name.data() + 3, name.data() + name.size(), value);
+    if (parsed.ec != std::errc{} || parsed.ptr != name.data() + name.size()) {
+        return std::nullopt;
+    }
+    return value;
 }
 
 }  // namespace
@@ -174,7 +270,9 @@ Result<int> run_level(
     }
 
     AssetCache assets;
-    const auto ui = make_ui_snapshot(root, options.dialog_id);
+    auto ui = make_ui_snapshot(
+        root, {"menuleft", options.dialog_id, "menuright", "menu_bubble"});
+    sync_inventory(ui, world);
     simulation::ControlState control;
     control.actor = actor;
     auto camera = make_camera(world, {800, 600}, actor);
@@ -192,10 +290,18 @@ Result<int> run_level(
         SDL_GetWindowSize(window, &window_width, &window_height);
         auto snapshot = make_render_snapshot(world, tick, camera.offset, camera.viewport);
         load_visible_assets(root, world, snapshot, assets, tick);
+        sync_inventory(ui, world);
+        load_ui_assets(root, world, ui, assets);
         const auto transform = make_viewport(ViewportConfig{
             snapshot.logical_size, window_width, window_height, options.integer_scale});
+        const auto ui_transform = make_viewport(ViewportConfig{
+            {1280, 720}, window_width, window_height, false});
         const auto regions = make_hit_regions(world, snapshot, assets, tick);
 
+        for (auto& control_state : ui.controls) {
+            control_state.hovered = false;
+            control_state.pressed = false;
+        }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
@@ -233,8 +339,44 @@ Result<int> run_level(
                 continue;
             }
             if (event.type != SDL_EVENT_MOUSE_BUTTON_DOWN ||
-                !event.button.down || event.button.button != 1) {
+                !event.button.down ||
+                (event.button.button != SDL_BUTTON_LEFT &&
+                 event.button.button != SDL_BUTTON_RIGHT)) {
                 continue;
+            }
+            const auto ui_cursor = ui_transform.to_logical({
+                static_cast<int>(event.button.x),
+                static_cast<int>(event.button.y),
+            });
+            const bool sneak = event.button.button == SDL_BUTTON_RIGHT;
+            if (!sneak) {
+                const auto ui_target = hit_ui_button(ui, ui_cursor);
+                if (ui_target.has_value()) {
+                    auto& ui_control = ui.controls[ui_target.value()];
+                    ui_control.hovered = true;
+                    ui_control.pressed = true;
+                    if (const auto slot = inventory_slot(ui_control.name);
+                        slot.has_value()) {
+                        if (slot.value() < ui.inventory_items.size()) {
+                            ui.selected_slot = slot.value();
+                            control.selected_item =
+                                ui.inventory_items[slot.value()];
+                        }
+                    } else if (ui_control.name == "left") {
+                        if (ui.inventory_start >= ui.inventory_slots) {
+                            ui.inventory_start -= ui.inventory_slots;
+                        } else {
+                            ui.inventory_start = 0;
+                        }
+                        ui.selected_slot.reset();
+                        sync_inventory(ui, world);
+                    } else if (ui_control.name == "right") {
+                        ui.inventory_start += ui.inventory_slots;
+                        ui.selected_slot.reset();
+                        sync_inventory(ui, world);
+                    }
+                    continue;
+                }
             }
             const auto cursor = transform.to_logical({
                 static_cast<int>(event.button.x),
@@ -251,7 +393,10 @@ Result<int> run_level(
                 cursor.y + camera.offset.y,
             };
             const auto handled = simulation::handle_click(
-                world, control, actor, level_cursor, target.has_value() ? target.value() : 0);
+                world, control, actor, level_cursor,
+                sneak ? 0 : (target.has_value() ? target.value() : 0),
+                sneak ? simulation::MovementMode::Sneak
+                      : simulation::MovementMode::Walk);
             if (!handled.has_value() && target.has_value()) {
                 std::cerr << "click rejected: " << handled.error().message << '\n';
             }
@@ -279,7 +424,9 @@ Result<int> run_level(
         snapshot = make_render_snapshot(world, tick, camera.offset, camera.viewport);
         load_visible_assets(root, world, snapshot, assets, tick);
         render_scene(renderer, snapshot, assets, transform);
-        draw_ui(renderer, ui, transform);
+        sync_inventory(ui, world);
+        load_ui_assets(root, world, ui, assets);
+        draw_ui(renderer, ui, assets, ui_transform);
         SDL_RenderPresent(renderer);
         SDL_Delay(1);
     }

@@ -26,6 +26,16 @@ const io::ImageRgba8* AssetCache::find(std::string_view asset_id) const {
     return found == images_.end() ? nullptr : &found->second;
 }
 
+SDL_Texture* AssetCache::texture(
+    SDL_Renderer* renderer, std::string_view asset_id) const {
+    const auto* image = find(asset_id);
+    if (image == nullptr || image->info.width == 0 ||
+        image->info.height == 0 || image->rgba.empty()) {
+        return nullptr;
+    }
+    return texture_for(renderer, asset_id, *image);
+}
+
 SDL_Texture* AssetCache::texture_for(
     SDL_Renderer* renderer,
     std::string_view asset_id,

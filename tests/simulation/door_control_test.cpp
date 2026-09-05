@@ -85,5 +85,18 @@ int main() {
     assert(!rejected.has_value());
     assert(blocked.entities[0].position.x == 0);
     assert(!blocked_control.door_traversal.has_value());
+
+    auto room_click = make_world();
+    room_click.level.rooms[1].offset = {250, 0};
+    opennfh::simulation::ControlState room_control;
+    const auto clicked_room = opennfh::simulation::handle_click(
+        room_click, room_control, 1, {300, 70}, 0);
+    assert(clicked_room.has_value());
+    for (opennfh::simulation::Tick tick = 1; tick <= 40; ++tick) {
+        opennfh::simulation::update_control(room_click, room_control, tick);
+    }
+    assert(room_click.entities[0].room == "dest");
+    assert(room_click.entities[1].animation == "ms");
+    assert(room_click.entities[2].animation == "ms");
     return 0;
 }

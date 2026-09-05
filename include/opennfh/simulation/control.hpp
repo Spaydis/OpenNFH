@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <cstddef>
 #include <optional>
 #include <string>
 
@@ -23,6 +24,7 @@ struct DoorTraversal {
     Vec2i source_position;
     Vec2i destination_position;
     DoorTraversalPhase phase{DoorTraversalPhase::Approach};
+    std::optional<std::size_t> route_index;
 };
 
 struct ControlState {
@@ -31,6 +33,11 @@ struct ControlState {
     Vec2i pending_position;
     std::map<EntityId, ActionTransaction> active_actions;
     std::optional<DoorTraversal> door_traversal;
+    MovementMode movement_mode{MovementMode::Walk};
+    bool movement_active{false};
+    std::string idle_animation;
+    std::string selected_item;
+    std::string pending_action_name;
     Tick last_tick{0};
 };
 
@@ -41,7 +48,8 @@ struct ControlState {
     ControlState& control,
     EntityId actor,
     Vec2i level_cursor,
-    EntityId target = 0);
+    EntityId target = 0,
+    MovementMode mode = MovementMode::Walk);
 
 void update_control(WorldState& world, ControlState& control, Tick now);
 

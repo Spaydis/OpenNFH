@@ -230,6 +230,11 @@ void merge_object_node(LevelDefinition& level, const io::XmlNode& node) {
             } else {
                 *found = value;
             }
+        } else if (child.name == "image") {
+            const auto image_name = attribute(child, "name");
+            if (!image_name.empty()) {
+                object.images[image_name] = attribute(child, "gfx");
+            }
         }
     }
 }
@@ -508,9 +513,13 @@ void parse_level_layout(LevelDefinition& level, const io::XmlNode& root) {
                     boolean(attribute(item, "visible"), true),
                 });
             } else if (item.name == "neighbor") {
+                auto cost_text = attribute(item, "costs");
+                if (cost_text.empty()) {
+                    cost_text = attribute(item, "doorcost");
+                }
                 room.neighbors.push_back(NeighborLink{
                     attribute(item, "name"),
-                    integer(attribute(item, "costs")),
+                    integer(cost_text),
                     attribute(item, "doorin"),
                     attribute(item, "doorout"),
                 });

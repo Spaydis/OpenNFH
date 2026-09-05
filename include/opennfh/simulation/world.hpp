@@ -21,6 +21,7 @@ struct NavStep {
     Vec2i destination;
     int cost{0};
     Vec2i arrival;
+    DoorId destination_door;
 };
 
 struct EntityState {
@@ -57,6 +58,7 @@ struct WorldState {
     std::set<DoorId> blocked_doors;
     std::map<EntityId, std::vector<NavStep>> pending_paths;
     std::map<EntityId, std::size_t> pending_indices;
+    std::map<EntityId, std::map<std::string, int>> object_contents;
     std::map<std::string, bool> flags;
     std::map<std::string, int> contents;
     std::vector<std::string> inventory;

@@ -1,6 +1,8 @@
 #include "opennfh/simulation/control.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -85,22 +87,42 @@ Vec2i project_to_walkway(const content::Room& room_value, Vec2i point) {
         point.x = std::clamp(point.x, floor.offset.x, floor.offset.x + std::max(floor.size.x - 1, 0));
         point.y = std::clamp(point.y, floor.offset.y, floor.offset.y + std::max(floor.size.y - 1, 0));
     }
-    if (room_value.path1.x != room_value.path2.x ||
-        room_value.path1.y != room_value.path2.y) {
-        if (room_value.path1.x == room_value.path2.x) {
-            point.x = room_value.path1.x;
-        } else if (room_value.path1.y == room_value.path2.y) {
-            point.y = room_value.path1.y;
-        } else {
-            const auto min_x = std::min(room_value.path1.x, room_value.path2.x);
-            const auto max_x = std::max(room_value.path1.x, room_value.path2.x);
-            const auto min_y = std::min(room_value.path1.y, room_value.path2.y);
-            const auto max_y = std::max(room_value.path1.y, room_value.path2.y);
-            point.x = std::clamp(point.x, min_x, max_x);
-            point.y = std::clamp(point.y, min_y, max_y);
-        }
+    const auto path_x = room_value.path2.x - room_value.path1.x;
+    const auto path_y = room_value.path2.y - room_value.path1.y;
+    const auto length_squared = path_x * path_x + path_y * path_y;
+    if (length_squared > 0) {
+        const auto point_x = point.x - room_value.path1.x;
+        const auto point_y = point.y - room_value.path1.y;
+        const auto projected = static_cast<double>(point_x * path_x + point_y * path_y) /
+                               static_cast<double>(length_squared);
+        const auto clamped = std::clamp(projected, 0.0, 1.0);
+        point.x = room_value.path1.x + static_cast<int>(std::lround(clamped * path_x));
+        point.y = room_value.path1.y + static_cast<int>(std::lround(clamped * path_y));
     }
     return point;
+}
+
+const content::Room* room_at_point(const WorldState& world, Vec2i point) {
+    const content::Room* path_match = nullptr;
+    for (const auto& value : world.level.rooms) {
+        const Vec2i local{
+            point.x - value.offset.x,
+            point.y - value.offset.y,
+        };
+        if (std::any_of(value.floors.begin(), value.floors.end(),
+                        [&](const auto& floor) { return inside(floor, local); })) {
+            return &value;
+        }
+        const auto min_x = std::min(value.path1.x, value.path2.x) - 48;
+        const auto max_x = std::max(value.path1.x, value.path2.x) + 48;
+        const auto min_y = std::min(value.path1.y, value.path2.y) - 48;
+        const auto max_y = std::max(value.path1.y, value.path2.y) + 48;
+        if (local.x >= min_x && local.x <= max_x &&
+            local.y >= min_y && local.y <= max_y) {
+            path_match = &value;
+        }
+    }
+    return path_match;
 }
 
 Vec2i interaction_position(const WorldState& world, const EntityState& target,
@@ -118,10 +140,14 @@ Vec2i interaction_position(const WorldState& world, const EntityState& target,
 }
 
 Result<ActionRequest> request_for_control(
-    const WorldState& world, EntityId actor, EntityId target) {
+    const WorldState& world, EntityId actor, EntityId target,
+    std::string_view explicit_action) {
     const auto* target_state = active_entity(world, target);
     if (target_state == nullptr) {
         return Result<ActionRequest>::failure(error(ErrorCode::Missing, "control target is not active"));
+    }
+    if (!explicit_action.empty()) {
+        return action_request_for(world, actor, target, explicit_action);
     }
     // Many original objects expose open as their standard action and close as
     // a secondary action. Choose close when the object is already open.
@@ -171,6 +197,90 @@ Result<bool> queue_door_traversal(WorldState& world, ControlState& control,
     return Result<bool>::success(true);
 }
 
+bool start_route_door_traversal(
+    WorldState& world, ControlState& control, Tick now) {
+    if (control.door_traversal.has_value() ||
+        world.busy_entities.contains(control.actor)) {
+        return false;
+    }
+    const auto path = world.pending_paths.find(control.actor);
+    const auto index = world.pending_indices.find(control.actor);
+    auto* actor_state = active_entity(world, control.actor);
+    if (path == world.pending_paths.end() ||
+        index == world.pending_indices.end() || actor_state == nullptr) {
+        return false;
+    }
+    std::size_t route_index = index->second;
+    if (route_index + 1 >= path->second.size() ||
+        path->second[route_index].door.empty() ||
+        path->second[route_index].destination_door.empty() ||
+        path->second[route_index + 1].room ==
+            path->second[route_index].room) {
+        if (route_index == 0) {
+            return false;
+        }
+        --route_index;
+        if (route_index + 1 >= path->second.size()) {
+            return false;
+        }
+    }
+    const auto& departure = path->second[route_index];
+    const auto& arrival = path->second[route_index + 1];
+    if (departure.door.empty() || arrival.room == departure.room) {
+        return false;
+    }
+    if (departure.destination_door.empty()) {
+        actor_state->room = arrival.room;
+        actor_state->position = arrival.destination;
+        index->second = route_index + 2;
+        return true;
+    }
+    const auto* source_door = door_entity(world, departure.room, departure.door);
+    const auto* destination_door = door_entity(
+        world, arrival.room, departure.destination_door);
+    if (actor_state->room != departure.room ||
+        actor_state->position.x != departure.destination.x ||
+        actor_state->position.y != departure.destination.y) {
+        return false;
+    }
+    if (source_door == nullptr || destination_door == nullptr) {
+        actor_state->room = arrival.room;
+        actor_state->position = arrival.destination;
+        index->second = route_index + 2;
+        return true;
+    }
+    const auto* source_object = object(world, source_door->kind);
+    const auto* destination_object = object(world, destination_door->kind);
+    if (source_object == nullptr || destination_object == nullptr ||
+        !has_action(*source_object, "enter", actor_state->kind) ||
+        !has_action(*destination_object, "leave", actor_state->kind)) {
+        actor_state->room = arrival.room;
+        actor_state->position = arrival.destination;
+        index->second = route_index + 2;
+        return true;
+    }
+    const auto started = begin_action(world, {
+        control.actor, source_door->id, "enter"}, now);
+    if (!started.has_value()) {
+        actor_state->room = arrival.room;
+        actor_state->position = arrival.destination;
+        index->second = route_index + 2;
+        return false;
+    }
+    control.active_actions[started.value().actor] = started.value();
+    control.door_traversal = DoorTraversal{
+        source_door->id,
+        destination_door->id,
+        arrival.room,
+        departure.destination,
+        arrival.destination,
+        DoorTraversalPhase::Entering,
+        route_index,
+    };
+    control.movement_active = false;
+    return true;
+}
+
 }  // namespace
 
 Result<bool> handle_click(
@@ -178,7 +288,8 @@ Result<bool> handle_click(
     ControlState& control,
     EntityId actor,
     Vec2i level_cursor,
-    EntityId target) {
+    EntityId target,
+    MovementMode mode) {
     auto* actor_state = active_entity(world, actor);
     if (actor_state == nullptr) {
         return Result<bool>::failure(error(ErrorCode::Missing, "controlled actor is not active"));
@@ -187,8 +298,14 @@ Result<bool> handle_click(
         return Result<bool>::failure(error(ErrorCode::InvalidArgument, "controlled actor is busy"));
     }
     control.actor = actor;
+    control.movement_mode = mode;
+    if (!control.movement_active) {
+        control.idle_animation = actor_state->animation;
+    }
+    control.movement_active = true;
     control.pending_target = 0;
     control.pending_position = {};
+    control.pending_action_name.clear();
 
     if (target != 0) {
         const auto* target_state = active_entity(world, target);
@@ -204,6 +321,7 @@ Result<bool> handle_click(
         if (!queued.has_value()) return queued;
         control.pending_target = target;
         control.pending_position = destination;
+        control.pending_action_name = control.selected_item;
         return Result<bool>::success(true);
     }
 
@@ -211,19 +329,23 @@ Result<bool> handle_click(
     if (current == nullptr) {
         return Result<bool>::failure(error(ErrorCode::Missing, "controlled actor room is missing"));
     }
+    const auto* clicked_room = room_at_point(world, level_cursor);
+    const auto* destination_room =
+        clicked_room == nullptr ? current : clicked_room;
     const Vec2i local{
-        level_cursor.x - current->offset.x,
-        level_cursor.y - current->offset.y,
+        level_cursor.x - destination_room->offset.x,
+        level_cursor.y - destination_room->offset.y,
     };
-    const auto destination = project_to_walkway(*current, local);
-    return walk_to(world, actor, current->id, destination);
+    const auto destination = project_to_walkway(*destination_room, local);
+    return walk_to(world, actor, destination_room->id, destination);
 }
 
 void update_control(WorldState& world, ControlState& control, Tick now) {
     control.last_tick = now;
     if (control.actor == 0) return;
 
-    advance_walking(world, control.actor);
+    start_route_door_traversal(world, control, now);
+    advance_walking(world, control.actor, control.movement_mode, 0, now);
     if (control.pending_target != 0 &&
         world.pending_paths.find(control.actor) == world.pending_paths.end()) {
         const auto* actor_state = active_entity(world, control.actor);
@@ -232,11 +354,14 @@ void update_control(WorldState& world, ControlState& control, Tick now) {
             actor_state->room == target_state->room &&
             actor_state->position.x == control.pending_position.x &&
             actor_state->position.y == control.pending_position.y) {
-            const auto request = request_for_control(world, control.actor, control.pending_target);
+            const auto request = request_for_control(
+                world, control.actor, control.pending_target,
+                control.pending_action_name);
             if (request.has_value()) {
                 const auto started = begin_action(world, request.value(), now);
                 if (started.has_value()) {
                     control.active_actions[started.value().actor] = started.value();
+                    control.movement_active = false;
                 }
             }
         }
@@ -257,6 +382,7 @@ void update_control(WorldState& world, ControlState& control, Tick now) {
             if (started.has_value()) {
                 control.active_actions[started.value().actor] = started.value();
                 control.door_traversal->phase = DoorTraversalPhase::Entering;
+                control.movement_active = false;
             } else {
                 control.door_traversal.reset();
             }
@@ -289,11 +415,32 @@ void update_control(WorldState& world, ControlState& control, Tick now) {
             } else if (control.door_traversal.has_value() &&
                        control.door_traversal->phase == DoorTraversalPhase::Leaving &&
                        completed.target == control.door_traversal->destination_door) {
+                if (control.door_traversal->route_index.has_value()) {
+                    const auto index = world.pending_indices.find(control.actor);
+                    if (index != world.pending_indices.end() &&
+                        (index->second == control.door_traversal->route_index.value() ||
+                         index->second == control.door_traversal->route_index.value() + 1)) {
+                        index->second =
+                            control.door_traversal->route_index.value() + 2;
+                    }
+                }
                 control.door_traversal.reset();
             }
         } else {
             ++action;
         }
+    }
+
+    if (control.movement_active &&
+        world.pending_paths.find(control.actor) == world.pending_paths.end() &&
+        !control.door_traversal.has_value() &&
+        control.active_actions.find(control.actor) == control.active_actions.end()) {
+        if (auto* actor_state = active_entity(world, control.actor);
+            actor_state != nullptr && !control.idle_animation.empty()) {
+            actor_state->animation = control.idle_animation;
+            actor_state->animation_started = now;
+        }
+        control.movement_active = false;
     }
 }
 
