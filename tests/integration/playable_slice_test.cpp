@@ -84,7 +84,9 @@ int main() {
     assert(dialog.has_value());
     assert(!dialog.value().controls.empty());
     assert(dialog.value().gfx == "gui/ingame/interface_m.tga");
-    for (const auto dialog_id : {"menuleft", "menuright", "menu_bubble"}) {
+    for (const auto dialog_id : {
+             "menucentertop", "menuleft", "menuright",
+             "menu_bubble", "menuleft_bar"}) {
         const auto hud_dialog =
             opennfh::presentation::load_dialog(root.value(), dialog_id);
         assert(hud_dialog.has_value());

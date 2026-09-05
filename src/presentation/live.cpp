@@ -271,7 +271,8 @@ Result<int> run_level(
 
     AssetCache assets;
     auto ui = make_ui_snapshot(
-        root, {"menuleft", options.dialog_id, "menuright", "menu_bubble"});
+        root, {"menucentertop", "menuleft", "menu_bubble",
+               "menuleft_bar", "menuright", options.dialog_id});
     sync_inventory(ui, world);
     simulation::ControlState control;
     control.actor = actor;
