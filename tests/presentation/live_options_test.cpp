@@ -10,10 +10,16 @@ int main() {
     assert(defaults.value().window_width == 1280);
     assert(defaults.value().window_height == 720);
     assert(defaults.value().dialog_id == "menu");
+    assert(defaults.value().logic_fps == 12);
 
     const auto bad_width = opennfh::presentation::validate_live_options(
         LiveOptions{0, 720, false, "menu"});
     assert(!bad_width.has_value());
+
+    auto bad_fps_options = LiveOptions{};
+    bad_fps_options.logic_fps = 0;
+    const auto bad_fps = opennfh::presentation::validate_live_options(bad_fps_options);
+    assert(!bad_fps.has_value());
 
     const auto valid_play = opennfh::presentation::validate_play_request(
         false, "data", "level_mail");

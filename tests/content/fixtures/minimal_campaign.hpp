@@ -30,7 +30,7 @@ public:
   <set name="set02" state="locked" nextset="set03"/>
   <set name="set03" state="locked"/>
 </leveldata>)"},
-            {"generic/objects.xml", R"(<object name="shared" gfx="shared"/>)"},
+            {"generic/objects.xml", R"(<object name="shared" gfx="shared"/><actor name="woody" gfx="woody"><speed name="mg0" speed="3" start="0" noise="0"/></actor>)"},
             {"generic/anims.xml", R"(<all_objects><object name="shared"><animation name="idle" type="loop"><frame gfx="idle.tga"/></animation></object></all_objects>)"},
             {"generic/gfxdata.xml", R"(<object name="shared"><gfxdata><file image="shared.tga" offset="0/0"/></gfxdata></object>)"},
             {"generic/sfxdata.xml", R"(<sfxdata/>)"},

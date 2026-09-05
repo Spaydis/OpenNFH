@@ -31,6 +31,12 @@ int main() {
     assert(object.actions.size() == 1);
     assert(object.actions[0].name == "use");
     assert(object.gfx == "shared");
+    const auto woody = level.value().objects.at("woody");
+    assert(woody.speeds.size() == 1);
+    assert(woody.speeds[0].name == "mg0");
+    assert(woody.speeds[0].speed == 3);
+    assert(woody.speeds[0].start == 0);
+    assert(woody.speeds[0].noise == 0);
     if (const char* data_root_path = std::getenv("OPENNFH_DATA_ROOT"); data_root_path != nullptr) {
         const auto actual_root = opennfh::io::DataRoot::open(data_root_path);
         assert(actual_root.has_value());

@@ -16,6 +16,7 @@ struct LiveOptions {
     int window_height{720};
     bool integer_scale{false};
     std::string dialog_id{"menu"};
+    int logic_fps{12};
 };
 
 [[nodiscard]] Result<LiveOptions> validate_live_options(LiveOptions options);

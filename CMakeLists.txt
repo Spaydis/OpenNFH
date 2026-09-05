@@ -143,6 +143,7 @@ endif()
 
 add_library(opennfh_simulation STATIC
     src/simulation/world.cpp
+    src/simulation/clock.cpp
     src/simulation/navigation.cpp
     src/simulation/scene.cpp
     src/simulation/input.cpp
@@ -166,6 +167,12 @@ add_executable(navigation_test
 )
 target_link_libraries(navigation_test PRIVATE opennfh_simulation)
 add_test(NAME navigation_test COMMAND navigation_test)
+
+add_executable(clock_test
+    tests/simulation/clock_test.cpp
+)
+target_link_libraries(clock_test PRIVATE opennfh_simulation)
+add_test(NAME clock_test COMMAND clock_test)
 
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/x64-windows/debug/bin")
     set_tests_properties(navigation_test PROPERTIES

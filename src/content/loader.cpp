@@ -192,6 +192,21 @@ void merge_object_node(LevelDefinition& level, const io::XmlNode& node) {
             } else {
                 *found = std::move(value);
             }
+        } else if (child.name == "speed") {
+            const auto speed_name = attribute(child, "name");
+            SpeedDef value{
+                speed_name,
+                integer(attribute(child, "speed")),
+                integer(attribute(child, "start")),
+                integer(attribute(child, "noise")),
+            };
+            auto found = std::find_if(object.speeds.begin(), object.speeds.end(),
+                                      [&](const SpeedDef& speed) { return speed.name == speed_name; });
+            if (found == object.speeds.end()) {
+                object.speeds.push_back(std::move(value));
+            } else {
+                *found = std::move(value);
+            }
         } else if (child.name == "stdaction") {
             const auto action_name = attribute(child, "name");
             if (std::find(object.standard_actions.begin(), object.standard_actions.end(), action_name) == object.standard_actions.end()) {

@@ -13,6 +13,7 @@
 #include "opennfh/presentation/ui.hpp"
 #include "opennfh/presentation/wav_player.hpp"
 #include "opennfh/simulation/control.hpp"
+#include "opennfh/simulation/clock.hpp"
 #include "opennfh/simulation/input.hpp"
 #include "opennfh/simulation/neighbor_ai.hpp"
 #include "opennfh/simulation/scene.hpp"
@@ -97,6 +98,10 @@ Result<LiveOptions> validate_live_options(LiveOptions options) {
         return Result<LiveOptions>::failure(error(
             ErrorCode::InvalidArgument, "live dialog ID is empty"));
     }
+    if (options.logic_fps < 1 || options.logic_fps > 60) {
+        return Result<LiveOptions>::failure(error(
+            ErrorCode::InvalidArgument, "live logic FPS must be between 1 and 60"));
+    }
     return Result<LiveOptions>::success(std::move(options));
 }
 
@@ -173,8 +178,9 @@ Result<int> run_level(
     simulation::Tick tick = 0;
     bool running = true;
     bool paused = false;
+    simulation::LogicClock logic_clock;
+    simulation::set_logic_fps(logic_clock, options.logic_fps);
     std::uint64_t previous_ms = SDL_GetTicks();
-    std::uint64_t accumulator_ms = 0;
 
     while (running) {
         int window_width = options.window_width;
@@ -224,9 +230,8 @@ Result<int> run_level(
         const auto now_ms = SDL_GetTicks();
         const auto elapsed_ms = std::min<std::uint64_t>(now_ms - previous_ms, 250);
         previous_ms = now_ms;
-        accumulator_ms += elapsed_ms;
-        while (accumulator_ms >= 16) {
-            accumulator_ms -= 16;
+        const auto logic_ticks = simulation::consume_logic_ticks(logic_clock, elapsed_ms);
+        for (int step = 0; step < logic_ticks; ++step) {
             ++tick;
             if (paused) {
                 continue;

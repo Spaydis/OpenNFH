@@ -81,6 +81,13 @@ struct Hotspot {
     Vec2i offset;
 };
 
+struct SpeedDef {
+    std::string name;
+    int speed{0};
+    int start{0};
+    int noise{0};
+};
+
 struct ContentItem {
     std::string name;
     int count{0};
@@ -129,6 +136,7 @@ struct ObjectDef {
     std::string gfx;
     std::string hotspot;
     std::vector<Hotspot> hotspots;
+    std::vector<SpeedDef> speeds;
     std::vector<std::string> standard_actions;
     std::vector<ActionDef> actions;
     std::vector<std::string> flags;
